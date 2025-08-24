@@ -1,0 +1,2 @@
+[console_scripts]
+jaf = jaf.cli:cli_main
