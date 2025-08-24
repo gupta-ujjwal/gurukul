@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Formatting Test</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #4a6fa5;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        .test-container {
+            display: flex;
+            margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .markdown {
+            flex: 1;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+        }
+        .rendered {
+            flex: 1;
+            padding: 15px;
+            background-color: #fff;
+        }
+        .agent-message {
+            background-color: #f0f2f5;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .test-section {
+            margin-bottom: 40px;
+        }
+        button {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #3a5a8c;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Markdown Formatting Test</h1>
+    <p>This page demonstrates how the Learning Agent formats markdown in messages. You can also test your own markdown below.</p>
+    
+    <div class="test-section">
+        <h2>Headers</h2>
+        <div class="test-container">
+            <div class="markdown">
+                <pre># Heading 1
+## Heading 2
+### Heading 3</pre>
+            </div>
+            <div class="rendered">
+                <div class="agent-message">
+                    <h1>Heading 1</h1>
+                    <h2>Heading 2</h2>
+                    <h3>Heading 3</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Text Formatting</h2>
+        <div class="test-container">
+            <div class="markdown">
+                <pre>**Bold text**
+*Italic text*
+Regular text</pre>
+            </div>
+            <div class="rendered">
+                <div class="agent-message">
+                    <strong>Bold text</strong><br>
+                    <em>Italic text</em><br>
+                    Regular text
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Lists</h2>
+        <div class="test-container">
+            <div class="markdown">
+                <pre>Ordered list:
+1. First item
+2. Second item
+3. Third item
+
+Unordered list:
+- Apple
+- Banana
+- Cherry</pre>
+            </div>
+            <div class="rendered">
+                <div class="agent-message">
+                    Ordered list:
+                    <ol>
+                        <li>First item</li>
+                        <li>Second item</li>
+                        <li>Third item</li>
+                    </ol>
+                    
+                    Unordered list:
+                    <ul>
+                        <li>Apple</li>
+                        <li>Banana</li>
+                        <li>Cherry</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Code</h2>
+        <div class="test-container">
+            <div class="markdown">
+                <pre>Inline code: `const x = 5;`
+
+Code block:
+```javascript
+function hello() {
+  console.log("Hello, world!");
+}
+```
+
+Python code:
+```python
+def greet():
+    print("Hello, world!")
+```</pre>
+            </div>
+            <div class="rendered">
+                <div class="agent-message">
+                    Inline code: <code>const x = 5;</code>
+                    
+                    <p>Code block:</p>
+                    <pre class="code-block language-javascript"><code>function hello() {
+  console.log("Hello, world!");
+}</code></pre>
+                    
+                    <p>Python code:</p>
+                    <pre class="code-block language-python"><code>def greet():
+    print("Hello, world!")</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Blockquotes and Horizontal Rules</h2>
+        <div class="test-container">
+            <div class="markdown">
+                <pre>> This is a blockquote.
+> It can span multiple lines.
+
+---
+
+Text after a horizontal rule.</pre>
+            </div>
+            <div class="rendered">
+                <div class="agent-message">
+                    <blockquote>This is a blockquote.</blockquote>
+                    <blockquote>It can span multiple lines.</blockquote>
+                    
+                    <hr>
+                    
+                    Text after a horizontal rule.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Links and Tables</h2>
+        <div class="test-container">
+            <div class="markdown">
+                <pre>[Link to Google](https://www.google.com)
+
+| Header 1 | Header 2 | Header 3 |
+| -------- | -------- | -------- |
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |</pre>
+            </div>
+            <div class="rendered">
+                <div class="agent-message">
+                    <a href="https://www.google.com" target="_blank" rel="noopener noreferrer">Link to Google</a>
+                    
+                    <table>
+                        <tr>
+                            <td>Header 1</td>
+                            <td>Header 2</td>
+                            <td>Header 3</td>
+                        </tr>
+                        <tr>
+                            <td>Cell 1</td>
+                            <td>Cell 2</td>
+                            <td>Cell 3</td>
+                        </tr>
+                        <tr>
+                            <td>Cell 4</td>
+                            <td>Cell 5</td>
+                            <td>Cell 6</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Your Own Markdown</h2>
+        <textarea id="markdown-input" placeholder="Enter your markdown here...">**Hello World!**
+
+This is a test of the markdown formatting.
+
+## Features
+- Real-time formatting
+- Support for all markdown elements
+- Easy to use
+
+```python
+def test_function():
+    return "It works!"
+```
+
+> Try it out now!
+</textarea>
+        <button id="format-button">Format Markdown</button>
+        <div class="agent-message" id="markdown-output"></div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const formatButton = document.getElementById('format-button');
+            const markdownInput = document.getElementById('markdown-input');
+            const markdownOutput = document.getElementById('markdown-output');
+            
+            // Function to format markdown
+            function formatMarkdown(content) {
+                // First, escape any HTML to prevent XSS
+                let formatted = escapeHtml(content);
+                
+                // Process code blocks with language highlighting
+                formatted = formatted.replace(/```(\w+)?\n([\s\S]+?)```/g, function(match, language, code) {
+                    return `<pre class="code-block${language ? ' language-'+language : ''}"><code>${code.trim()}</code></pre>`;
+                });
+                
+                // Process inline code
+                formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+                
+                // Process headers
+                formatted = formatted.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+                formatted = formatted.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+                formatted = formatted.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+                
+                // Process bold text
+                formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                
+                // Process italic text
+                formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                
+                // Process ordered lists
+                formatted = formatted.replace(/^\d+\. (.+?)$/gm, '<li>$1</li>');
+                formatted = formatted.replace(/(<li>.*<\/li>)(?!\n<li>)/gs, '<ol>$1</ol>');
+                
+                // Process unordered lists
+                formatted = formatted.replace(/^- (.+?)$/gm, '<li>$1</li>');
+                formatted = formatted.replace(/(<li>.*<\/li>)(?!\n<li>)/gs, '<ul>$1</ul>');
+                
+                // Process blockquotes
+                formatted = formatted.replace(/^> (.+?)$/gm, '<blockquote>$1</blockquote>');
+                
+                // Process horizontal rules
+                formatted = formatted.replace(/^---$/gm, '<hr>');
+                
+                // Process links
+                formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                
+                // Process tables (basic implementation)
+                formatted = formatted.replace(/^\|(.+)\|$/gm, '<tr>$1</tr>');
+                formatted = formatted.replace(/\|([^|]+)\|/g, '<td>$1</td>');
+                formatted = formatted.replace(/<tr>(.+?)<\/tr>/g, function(match) {
+                    if (match.includes('---')) {
+                        return ''; // Remove separator row
+                    }
+                    return match;
+                });
+                formatted = formatted.replace(/(<tr>.*<\/tr>)(?!\n<tr>)/gs, '<table>$1</table>');
+                
+                // Replace newlines with <br> for remaining text
+                formatted = formatted.replace(/\n/g, '<br>');
+                
+                return formatted;
+            }
+            
+            // Helper function to escape HTML
+            function escapeHtml(text) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+            
+            // Format button click handler
+            formatButton.addEventListener('click', function() {
+                const markdown = markdownInput.value;
+                markdownOutput.innerHTML = formatMarkdown(markdown);
+            });
+            
+            // Format initial content
+            markdownOutput.innerHTML = formatMarkdown(markdownInput.value);
+        });
+    </script>
+</body>
+</html>

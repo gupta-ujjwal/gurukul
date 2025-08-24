@@ -34,7 +34,8 @@ def create_learning_agent() -> Agent:
         name="LearningAgent",
         instructions=instructions,
         model_config=ModelConfig(
-            name="qwen3-coder-480b"  # Or whichever model litellm is serving
+            # name="qwen3-coder-480b"  # Or whichever model litellm is serving
+            name="gemini-2.5-pro"
         ),
         tools=[get_course, get_section_context, view_progress, update_progress],
     )
