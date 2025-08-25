@@ -33,7 +33,7 @@ context = LearningContext(
     session_id=generate_run_id(),
     user_id="user_123",  # In real scenarios, fetch from auth system
     progress={},
-    session_metadata={},
+    past_messages=[],
 )
 
 # Initialize the agent and model provider
@@ -101,10 +101,12 @@ async def process_message(user_input):
     global turn_count, context
     
     logger.info("Creating RunState for message processing")
+    old_messages = context.past_messages if context.past_messages else []
+    user_messages = [Message(role="user", content=user_input)]
     state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=[Message(role="user", content=user_input)],
+        messages=old_messages+user_messages,
         current_agent_name="LearningAgent",
         context=context,
         turn_count=turn_count,
@@ -117,14 +119,44 @@ async def process_message(user_input):
         
         if result.outcome.status == "completed":
             logger.info("Message processed successfully")
-            context.session_metadata[(turn_count, "sessionContext")] = (user_input, result.outcome.output)
-            socketio.emit('message', {'role': 'agent', 'content': result.outcome.output})
+            
+            # Post-process the output to ensure proper HTML formatting
+            output = result.outcome.output
+            
+            # Convert markdown-style formatting to HTML
+            import re
+            
+            # Convert markdown-style bold to HTML
+            output = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', output)
+            
+            # Convert markdown-style headers to HTML
+            output = re.sub(r'###\s+([^\n]+)', r'<h3>\1</h3>', output)
+            output = re.sub(r'##\s+([^\n]+)', r'<h2>\1</h2>', output)
+            output = re.sub(r'#\s+([^\n]+)', r'<h1>\1</h1>', output)
+            
+            # Convert markdown-style italic to HTML
+            output = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', output)
+            
+            # Convert markdown-style unordered lists
+            output = re.sub(r'^\s*-\s+(.+)$', r'<li>\1</li>', output, flags=re.MULTILINE)
+            
+            # Convert markdown-style ordered lists
+            output = re.sub(r'^\s*\d+\.\s+(.+)$', r'<li>\1</li>', output, flags=re.MULTILINE)
+            
+            # Wrap adjacent list items in ul tags (simplified approach)
+            output = re.sub(r'(<li>.*?</li>)(?!\n<li>)', r'<ul>\1</ul>', output, flags=re.DOTALL)
+            
+            logger.info("Post-processed markdown to HTML")
+            
+            context.past_messages.append(Message(role="user", content=user_input))
+            context.past_messages.append(Message(role="assistant", content=output))
+            socketio.emit('message', {'role': 'assistant', 'content': output})
         else:
             logger.error(f"Error in agent processing: {result.outcome.error}")
-            socketio.emit('message', {'role': 'agent', 'content': f"Error: {result.outcome.error}"})
+            socketio.emit('message', {'role': 'assistant', 'content': f"Error: {result.outcome.error}"})
     except Exception as e:
         logger.error(f"Exception in process_message: {str(e)}", exc_info=True)
-        socketio.emit('message', {'role': 'agent', 'content': f"An error occurred: {str(e)}"})
+        socketio.emit('message', {'role': 'assistant', 'content': f"An error occurred: {str(e)}"})
 
 # Helper function to run async code in the background
 def run_async(coro):

@@ -3,6 +3,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatMessages = document.getElementById('chat-messages');
     const messageForm = document.getElementById('message-form');
     const userInput = document.getElementById('user-input');
+    const subjectButtons = document.querySelectorAll('.subject-btn');
+    const classButtons = document.querySelectorAll('.class-btn');
+    const topicPills = document.querySelectorAll('.topic-pill');
+    
+    // Initialize UI interactions
+    initializeUIInteractions();
     
     // Initialize Socket.io connection with error handling
     const socket = io({
@@ -37,7 +43,9 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.on('message', function(data) {
         removeTypingIndicator();
         isWaitingForResponse = false;
-        addMessage(data.role, data.content);
+        // Map 'agent' role to 'assistant' for consistent styling
+        const role = data.role === 'agent' ? 'assistant' : data.role;
+        addMessage(role, data.content);
         scrollToBottom();
     });
     
@@ -135,16 +143,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function addMessage(role, content) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(20px)';
         
         if (role === 'user') {
             messageDiv.classList.add('user-message');
-            messageDiv.textContent = content;
-        } else if (role === 'agent') {
+            messageDiv.innerHTML = `<i class="fas fa-user-circle" style="margin-right: 8px; color: #4cc9f0;"></i> ${content}`;
+        } else if (role === 'assistant' || role === 'agent') {
             messageDiv.classList.add('agent-message');
-            messageDiv.innerHTML = formatAgentMessage(content);
+            messageDiv.innerHTML = `<i class="fas fa-robot" style="margin-right: 8px; color: #4361ee;"></i> ${formatAgentMessage(content)}`;
         } else {
             messageDiv.classList.add('system-message');
-            messageDiv.textContent = content;
+            messageDiv.innerHTML = `<i class="fas fa-info-circle" style="margin-right: 8px;"></i> ${content}`;
         }
         
         // Add timestamp
@@ -155,13 +165,22 @@ document.addEventListener('DOMContentLoaded', function() {
         messageDiv.appendChild(timeSpan);
         
         chatMessages.appendChild(messageDiv);
+        
+        // Animate the message appearance
+        setTimeout(() => {
+            messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        }, 10);
     }
     
     // Function to add a system message
     function addSystemMessage(content) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', 'system-message');
-        messageDiv.textContent = content;
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(20px)';
+        messageDiv.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i> ${content}`;
         
         // Add timestamp
         const timeSpan = document.createElement('div');
@@ -171,6 +190,14 @@ document.addEventListener('DOMContentLoaded', function() {
         messageDiv.appendChild(timeSpan);
         
         chatMessages.appendChild(messageDiv);
+        
+        // Animate the message appearance
+        setTimeout(() => {
+            messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        }, 10);
+        
         scrollToBottom();
     }
     
@@ -200,89 +227,52 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Function to scroll to bottom of chat
+    // Function to scroll to bottom of chat with smooth animation
     function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        chatMessages.scrollTo({
+            top: chatMessages.scrollHeight,
+            behavior: 'smooth'
+        });
     }
     
-    // Function to format agent messages with Markdown syntax
+    // Function to format agent messages
     function formatAgentMessage(content) {
-        // First, escape any HTML to prevent XSS
-        let formatted = escapeHtml(content);
+        // Process emojis to make them more visible
+        let formatted = content.replace(/([\u{1F300}-\u{1F6FF}])/gu, '<span class="emoji">$1</span>');
         
-        // Process code blocks with language highlighting
-        formatted = formatted.replace(/```(\w+)?\n([\s\S]+?)```/g, function(match, language, code) {
-            return `<pre class="code-block${language ? ' language-'+language : ''}"><code>${code.trim()}</code></pre>`;
-        });
+        // Convert markdown-style formatting to HTML if it still appears
         
-        // Process inline code
-        formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
-        
-        // Process headers
-        formatted = formatted.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
-        formatted = formatted.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
-        formatted = formatted.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
-        
-        // Process bold text
+        // Convert markdown-style bold to HTML
         formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         
-        // Process italic text
+        // Convert markdown-style headers to HTML
+        formatted = formatted.replace(/##\s+([^\n]+)/g, '<h2>$1</h2>');
+        formatted = formatted.replace(/###\s+([^\n]+)/g, '<h3>$1</h3>');
+        formatted = formatted.replace(/#\s+([^\n]+)/g, '<h1>$1</h1>');
+        
+        // Convert markdown-style italic to HTML
         formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
         
-        // Process ordered lists
-        formatted = formatted.replace(/^\d+\. (.+?)$/gm, '<li>$1</li>');
-        formatted = formatted.replace(/(<li>.*<\/li>)(?!\n<li>)/gs, '<ol>$1</ol>');
+        // Convert markdown-style unordered lists
+        formatted = formatted.replace(/^\s*-\s+(.+)$/gm, '<li>$1</li>');
         
-        // Process unordered lists
-        formatted = formatted.replace(/^- (.+?)$/gm, '<li>$1</li>');
+        // Convert markdown-style ordered lists
+        formatted = formatted.replace(/^\s*\d+\.\s+(.+)$/gm, '<li>$1</li>');
+        
+        // Wrap adjacent list items in ul/ol tags (simplified approach)
         formatted = formatted.replace(/(<li>.*<\/li>)(?!\n<li>)/gs, '<ul>$1</ul>');
         
-        // Process blockquotes
-        formatted = formatted.replace(/^> (.+?)$/gm, '<blockquote>$1</blockquote>');
+        // Clean up any double-escaped HTML entities
+        formatted = formatted.replace(/&amp;lt;/g, '&lt;');
+        formatted = formatted.replace(/&amp;gt;/g, '&gt;');
         
-        // Process horizontal rules
-        formatted = formatted.replace(/^---$/gm, '<hr>');
-        
-        // Process links
-        formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-        
-        // Process tables (basic implementation)
-        formatted = formatted.replace(/^\|(.+)\|$/gm, '<tr>$1</tr>');
-        formatted = formatted.replace(/\|([^|]+)\|/g, '<td>$1</td>');
-        formatted = formatted.replace(/<tr>(.+?)<\/tr>/g, function(match) {
-            if (match.includes('---')) {
-                return ''; // Remove separator row
-            }
-            return match;
-        });
-        formatted = formatted.replace(/(<tr>.*<\/tr>)(?!\n<tr>)/gs, '<table>$1</table>');
-        
-        // Process emojis to make them more visible
-        formatted = formatted.replace(/([\u{1F300}-\u{1F6FF}])/gu, '<span class="emoji">$1</span>');
-        
-        // Reduce excessive line breaks
-        formatted = formatted.replace(/<br><br><br>/g, '<br><br>');
-        
-        // Replace newlines with <br> for remaining text
-        formatted = formatted.replace(/\n/g, '<br>');
-        
-        // Add paragraph tags for better spacing
-        formatted = formatted.replace(/(.+?)(?=<br>|$)/g, function(match) {
-            // Skip if the match already has HTML tags
-            if (match.match(/<[^>]+>/)) {
-                return match;
-            }
-            return `<p>${match}</p>`;
-        });
-        
-        // Clean up any empty paragraphs
-        formatted = formatted.replace(/<p><\/p>/g, '');
-        
+        // Return the content with markdown converted to HTML
         return formatted;
     }
     
-    // Helper function to escape HTML
+    // Helper function to escape HTML - not used anymore since content is already in HTML format
     function escapeHtml(text) {
+        // Keeping this function for potential future use
         const map = {
             '&': '&amp;',
             '<': '&lt;',
@@ -295,4 +285,59 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Focus input field on load
     userInput.focus();
+    
+    // Add a welcome animation
+    setTimeout(() => {
+        addMessage('assistant', 'Welcome to the Learning Agent! Type "let\'s start" to begin your physics learning journey. I\'m here to help you understand physics concepts in a fun and interactive way!');
+    }, 500);
+    
+    // Function to initialize UI interactions
+    function initializeUIInteractions() {
+        // Subject button click handlers
+        subjectButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all subject buttons
+                subjectButtons.forEach(btn => btn.classList.remove('active'));
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Update header text based on selected subject
+                const subjectName = this.textContent;
+                const headerSubtitle = document.querySelector('header p');
+                const activeClass = document.querySelector('.class-btn.active').textContent;
+                headerSubtitle.textContent = `Your CBSE Class ${activeClass} ${subjectName} Tutor`;
+                
+                // Add a system message about subject change
+                addSystemMessage(`Switched to ${subjectName} for Class ${activeClass}`);
+            });
+        });
+        
+        // Class button click handlers
+        classButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all class buttons
+                classButtons.forEach(btn => btn.classList.remove('active'));
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Update header text based on selected class
+                const className = this.textContent;
+                const headerSubtitle = document.querySelector('header p');
+                const activeSubject = document.querySelector('.subject-btn.active').textContent;
+                headerSubtitle.textContent = `Your CBSE Class ${className} ${activeSubject} Tutor`;
+                
+                // Add a system message about class change
+                addSystemMessage(`Switched to Class ${className} for ${activeSubject}`);
+            });
+        });
+        
+        // Topic pill click handlers
+        topicPills.forEach(pill => {
+            pill.addEventListener('click', function() {
+                const topicName = this.textContent;
+                userInput.value = `Tell me about ${topicName}`;
+                userInput.focus();
+            });
+        });
+    }
 });

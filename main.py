@@ -12,7 +12,7 @@ context = LearningContext(
             session_id=generate_run_id(),
             user_id="user_123",  # In real scenarios, fetch from auth system
             progress={},
-            session_metadata={},
+            past_messages=[],
         )
 
 
@@ -57,8 +57,8 @@ async def interactive_learning_agent():
         i += 1    
 
         if result.outcome.status == "completed":
-            context.session_metadata[(i,"sessionContext")] = (user_input,result.outcome.output)
-            print(f"Session Metadata: {context.session_metadata}")
+            context.past_messages.append(Message(role="user", content=user_input))
+            context.past_messages.append(Message(role="agent", content=result.outcome.output))
             print(f"Agent: {result.outcome.output}\n")
         else:
             print(f"Error: {result.outcome.error}\n")
