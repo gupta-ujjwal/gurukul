@@ -1,39 +1,49 @@
-
 import os
-from jaf import function_tool
-from ContextClass import LearningContext
+from langchain_core.tools import tool
+from ContextClass import LearningContext, LearningState
 from typing import List
 import re  
 
-# ---------------- Tools ----------------
-@function_tool 
-async def update_progress(context: LearningContext, chapter: str, section: str, score: int) -> str:
-    """Update user progress for a chapter and section with a score out of 100."""
+# Global context reference (will be set by the agent)
+_current_context: LearningContext = None
 
-    context.progress = context.progress or {}
-    context.progress[(chapter, section)] = score
+def set_current_context(context: LearningContext):
+    """Set the current learning context for tools to access."""
+    global _current_context
+    _current_context = context
+
+def get_current_context() -> LearningContext:
+    """Get the current learning context."""
+    global _current_context
+    if _current_context is None:
+        raise ValueError("No learning context is currently set")
+    return _current_context
+
+# ---------------- LangGraph Tools ----------------
+
+@tool
+def update_progress(chapter: str, section: str, score: int) -> str:
+    """Update user progress for a chapter and section with a score out of 100.
     
-    # Simulated progress update
+    Args:
+        chapter: The chapter name or number
+        section: The section name 
+        score: Score out of 100
+    """
+    context = get_current_context()
+    context.update_progress(chapter, section, score)
+    
     return f"Progress updated: Chapter '{chapter}', Section '{section}', Score {score}/100."
 
-# ---------------- Tools ----------------
-@function_tool 
-async def view_progress(context: LearningContext) -> str:
+@tool 
+def view_progress() -> str:
     """View user progress across chapters and sections."""
-    
-    if not context.progress:
-        return "No progress recorded yet."
-    
-    progress_lines = ["Your Progress:"]
-    for (chapter, section), score in context.progress.items():
-        progress_lines.append(f"- Chapter: {chapter}, Section: {section}, Score: {score}/100")
-    
-    return "\n".join(progress_lines)
-    
+    context = get_current_context()
+    return context.get_progress_summary()
 
-@function_tool
-async def get_course(context: LearningContext) -> str:
-    """Fetch the course map (chapters and sections)."""
+@tool
+def get_course() -> str:
+    """Fetch the course map showing available chapters and sections."""
     
     # Simulated course map
     return """
@@ -49,21 +59,23 @@ async def get_course(context: LearningContext) -> str:
         Frame of reference, Motion in a straight line, Elementary concepts of differentiation and integration for describing motion, uniform and non- uniform motion, and instantaneous velocity, uniformly accelerated motion, velocity - time and position-time graphs. Relations for uniformly accelerated motion (graphical treatment).
     """
 
-
-@function_tool
-async def get_section_context(context: LearningContext, chapter: str, section: str) -> str:
-    """Fetch content snippets and citations for a chapter and section."""
+@tool
+def get_section_context(chapter: str, section: str) -> str:
+    """Fetch content snippets and citations for a specific chapter and section.
+    
+    Args:
+        chapter: The chapter name or number
+        section: The section name
+    """
     
     # Simulated content retrieval
     if chapter == "1" or section == "Units and Measurements":
         content = extract_pages_from_pdf("/Users/Ujjwal.gupta/juspay/Playground/jaf/learning-agent/LerningMaterial/Class 11/Physics/keph101.pdf")
-        # print(f"--------- Extracted {len(content)} pages from PDF for Chapter 1.")
         if not content:
             return "No content found for Chapter 1 - Units and Measurements."
         return "\n".join(content)
     elif chapter == "2" or section == "Motion in a Straight Line":
         content = extract_pages_from_pdf("/Users/Ujjwal.gupta/juspay/Playground/jaf/learning-agent/LerningMaterial/Class 11/Physics/keph102.pdf")
-        # print(f"----------- Extracted {len(content)} pages from PDF for Chapter 2.")
         if not content:
             return "No content found for Chapter 2 - Motion in a Straight Line."
         return "\n".join(content)
@@ -93,3 +105,11 @@ def extract_pages_from_pdf(pdf_path: str) -> List[str]:
         return pages
     except Exception:
         return []
+
+# Tool list for easy access
+LEARNING_TOOLS = [
+    get_course,
+    get_section_context, 
+    view_progress,
+    update_progress,
+]

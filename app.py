@@ -3,15 +3,11 @@ import os
 import json
 import logging
 import sys
+import re
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
-from jaf import (
-    run, make_litellm_provider,
-    RunState, RunConfig, Message,
-    generate_run_id, generate_trace_id, ModelConfig
-)
 from ContextClass import LearningContext
-from AgentFactory import create_learning_agent
+from AgentFactory import create_learning_agent, run_learning_agent_async
 
 # Configure logging
 logging.basicConfig(
@@ -30,27 +26,24 @@ socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=
 
 # Initialize the learning context
 context = LearningContext(
-    session_id=generate_run_id(),
+    session_id="web_session_001",
     user_id="user_123",  # In real scenarios, fetch from auth system
     progress={},
     past_messages=[],
 )
 
-# Initialize the agent and model provider
-litellm_url = os.getenv("LITELLM_URL", "http://localhost:4000/")
-litellm_api_key = os.getenv("LITELLM_API_KEY", "anything")
-model_provider = make_litellm_provider(litellm_url, litellm_api_key)
-learning_agent = create_learning_agent()
+# Initialize the LangGraph agent
+agent_graph = None
 
-# Configure the agent run
-config = RunConfig(
-    agent_registry={"LearningAgent": learning_agent},
-    model_provider=model_provider,
-    max_turns=30,
-)
-
-# Turn counter
-turn_count = 0
+def initialize_agent():
+    """Initialize the LangGraph agent."""
+    global agent_graph
+    try:
+        agent_graph = create_learning_agent()
+        logger.info("✓ LangGraph agent initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize agent: {str(e)}")
+        raise
 
 # Routes
 @app.route('/')
@@ -69,7 +62,6 @@ def handle_disconnect():
 
 @socketio.on('message')
 def handle_message(data):
-    global turn_count
     user_input = data.get('message', '').strip()
     
     logger.info(f"Received message: {user_input}")
@@ -98,71 +90,65 @@ def run_async_message(user_input):
         loop.close()
 
 async def process_message(user_input):
-    global turn_count, context
+    global context, agent_graph
     
-    logger.info("Creating RunState for message processing")
-    old_messages = context.past_messages if context.past_messages else []
-    user_messages = [Message(role="user", content=user_input)]
-    state = RunState(
-        run_id=generate_run_id(),
-        trace_id=generate_trace_id(),
-        messages=old_messages+user_messages,
-        current_agent_name="LearningAgent",
-        context=context,
-        turn_count=turn_count,
-    )
+    logger.info("Processing message with LangGraph agent")
     
     try:
-        logger.info("Running agent with the message")
-        result = await run(state, config)
-        turn_count += 1
+        if agent_graph is None:
+            logger.error("Agent not initialized")
+            socketio.emit('message', {'role': 'assistant', 'content': "Error: Agent not initialized. Please refresh the page."})
+            return
+            
+        logger.info("Running LangGraph agent with the message")
+        response = await run_learning_agent_async(agent_graph, user_input, context)
         
-        if result.outcome.status == "completed":
-            logger.info("Message processed successfully")
-            
-            # Post-process the output to ensure proper HTML formatting
-            output = result.outcome.output
-            
-            # Convert markdown-style formatting to HTML
-            import re
-            
-            # Convert markdown-style bold to HTML
-            output = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', output)
-            
-            # Convert markdown-style headers to HTML
-            output = re.sub(r'###\s+([^\n]+)', r'<h3>\1</h3>', output)
-            output = re.sub(r'##\s+([^\n]+)', r'<h2>\1</h2>', output)
-            output = re.sub(r'#\s+([^\n]+)', r'<h1>\1</h1>', output)
-            
-            # Convert markdown-style italic to HTML
-            output = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', output)
-            
-            # Convert markdown-style unordered lists
-            output = re.sub(r'^\s*-\s+(.+)$', r'<li>\1</li>', output, flags=re.MULTILINE)
-            
-            # Convert markdown-style ordered lists
-            output = re.sub(r'^\s*\d+\.\s+(.+)$', r'<li>\1</li>', output, flags=re.MULTILINE)
-            
-            # Wrap adjacent list items in ul tags (simplified approach)
-            output = re.sub(r'(<li>.*?</li>)(?!\n<li>)', r'<ul>\1</ul>', output, flags=re.DOTALL)
-            
-            logger.info("Post-processed markdown to HTML")
-            
-            context.past_messages.append(Message(role="user", content=user_input))
-            context.past_messages.append(Message(role="assistant", content=output))
-            socketio.emit('message', {'role': 'assistant', 'content': output})
-        else:
-            logger.error(f"Error in agent processing: {result.outcome.error}")
-            socketio.emit('message', {'role': 'assistant', 'content': f"Error: {result.outcome.error}"})
+        logger.info("Message processed successfully")
+        
+        # Post-process the output to ensure proper HTML formatting
+        output = response
+        
+        # Convert markdown-style formatting to HTML if needed
+        output = convert_markdown_to_html(output)
+        
+        logger.info("Post-processed markdown to HTML")
+        
+        socketio.emit('message', {'role': 'assistant', 'content': output})
+        
     except Exception as e:
         logger.error(f"Exception in process_message: {str(e)}", exc_info=True)
         socketio.emit('message', {'role': 'assistant', 'content': f"An error occurred: {str(e)}"})
 
-# Helper function to run async code in the background
-def run_async(coro):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+def convert_markdown_to_html(text):
+    """Convert markdown-style formatting to HTML."""
+    if not text:
+        return text
+    
+    # Convert markdown-style bold to HTML
+    text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
+    
+    # Convert markdown-style headers to HTML
+    text = re.sub(r'###\s+([^\n]+)', r'<h3>\1</h3>', text)
+    text = re.sub(r'##\s+([^\n]+)', r'<h2>\1</h2>', text)
+    text = re.sub(r'#\s+([^\n]+)', r'<h1>\1</h1>', text)
+    
+    # Convert markdown-style italic to HTML
+    text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
+    
+    # Convert markdown-style unordered lists
+    text = re.sub(r'^\s*-\s+(.+)$', r'<li>\1</li>', text, flags=re.MULTILINE)
+    
+    # Convert markdown-style ordered lists
+    text = re.sub(r'^\s*\d+\.\s+(.+)$', r'<li>\1</li>', text, flags=re.MULTILINE)
+    
+    # Wrap adjacent list items in ul tags (simplified approach)
+    text = re.sub(r'(<li>.*?</li>)(?!\n<li>)', r'<ul>\1</ul>', text, flags=re.DOTALL)
+    
+    # Convert line breaks to <br> tags for better HTML display
+    text = re.sub(r'\n\n+', '<br><br>', text)
+    text = re.sub(r'\n', '<br>', text)
+    
+    return text
 
 # Run the app
 if __name__ == '__main__':
@@ -173,5 +159,8 @@ if __name__ == '__main__':
     except ImportError:
         logger.warning("⚠️ python-dotenv not installed, using system env variables")
     
-    logger.info("Starting the Flask-SocketIO server")
+    # Initialize the agent before starting the server
+    initialize_agent()
+    
+    logger.info("Starting the Flask-SocketIO server with LangGraph")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

@@ -1,18 +1,63 @@
-
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
-from jaf import Message
-# ---------------- Context ----------------
-@dataclass(frozen=True)
+from typing import Optional, Dict, Any, List, TypedDict, Annotated
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+import operator
+
+# ---------------- LangGraph State ----------------
+class LearningState(TypedDict):
+    """LangGraph state for the learning agent."""
+    messages: Annotated[List[BaseMessage], operator.add]
+    learning_context: "LearningContext"
+
+# ---------------- Legacy Context (for compatibility) ----------------
+@dataclass
 class LearningContext:
-    """Immutable context for learning agent."""
+    """Learning context for the agent."""
     user_id: str
     session_id: str
-    created_at: datetime = None
+    created_at: Optional[datetime] = None
     progress: Optional[Dict[str, Any]] = None
-    past_messages: Optional[Message] = None
+    past_messages: Optional[List[Dict[str, str]]] = None
 
     def __post_init__(self):
         if self.created_at is None:
-            object.__setattr__(self, 'created_at', datetime.utcnow())
+            self.created_at = datetime.utcnow()
+        if self.progress is None:
+            self.progress = {}
+        if self.past_messages is None:
+            self.past_messages = []
+
+    def add_message(self, role: str, content: str):
+        """Add a message to the past messages."""
+        if self.past_messages is None:
+            self.past_messages = []
+        self.past_messages.append({"role": role, "content": content})
+
+    def get_messages_as_langchain(self) -> List[BaseMessage]:
+        """Convert past messages to LangChain message format."""
+        messages = []
+        if self.past_messages:
+            for msg in self.past_messages:
+                if msg["role"] == "user":
+                    messages.append(HumanMessage(content=msg["content"]))
+                elif msg["role"] in ["assistant", "agent"]:
+                    messages.append(AIMessage(content=msg["content"]))
+        return messages
+
+    def update_progress(self, chapter: str, section: str, score: int):
+        """Update progress for a chapter and section."""
+        if self.progress is None:
+            self.progress = {}
+        self.progress[(chapter, section)] = score
+
+    def get_progress_summary(self) -> str:
+        """Get a formatted progress summary."""
+        if not self.progress:
+            return "No progress recorded yet."
+        
+        progress_lines = ["Your Progress:"]
+        for (chapter, section), score in self.progress.items():
+            progress_lines.append(f"- Chapter: {chapter}, Section: {section}, Score: {score}/100")
+        
+        return "\n".join(progress_lines)
