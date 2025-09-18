@@ -5,249 +5,165 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Learning Agent Chat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Additional styles for the enhanced dashboard */
-        .dashboard-container {
-            display: flex;
-            gap: 20px;
-            height: 100%;
-        }
-        
-        .sidebar {
-            width: 250px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .subject-selector {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-        
-        .subject-btn {
-            background: linear-gradient(135deg, #4361ee, #4cc9f0);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 8px 15px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        
-        .subject-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-        
-        .subject-btn.active {
-            background: linear-gradient(135deg, #f72585, #7209b7);
-        }
-        
-        .class-selector {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .class-btn {
-            background-color: #f0f0f0;
-            border: none;
-            border-radius: 50%;
-            width: 35px;
-            height: 35px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .class-btn:hover {
-            background-color: #e0e0e0;
-        }
-        
-        .class-btn.active {
-            background-color: #4361ee;
-            color: white;
-        }
-        
-        .resource-card {
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border-left: 4px solid #4cc9f0;
-        }
-        
-        .resource-card h3 {
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .resource-card ul {
-            list-style-type: none;
-            padding-left: 10px;
-        }
-        
-        .resource-card li {
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .resource-card a {
-            color: #4361ee;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-        
-        .resource-card a:hover {
-            color: #f72585;
-            text-decoration: underline;
-        }
-        
-        .progress-section {
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-        
-        .progress-bar {
-            height: 10px;
-            background-color: #e0e0e0;
-            border-radius: 5px;
-            margin: 10px 0;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4361ee, #4cc9f0);
-            border-radius: 5px;
-            width: 35%; /* Example progress */
-        }
-        
-        .recent-topics {
-            margin-top: 10px;
-        }
-        
-        .topic-pill {
-            display: inline-block;
-            background-color: #f0f0f0;
-            border-radius: 20px;
-            padding: 5px 12px;
-            margin: 5px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .topic-pill:hover {
-            background-color: #e0e0e0;
-        }
-        
-        .chat-container {
-            flex: 1;
-            border-radius: 16px;
-        }
-        
-        .welcome-banner {
-            background: linear-gradient(135deg, #4361ee, #4cc9f0);
-            color: white;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .welcome-banner i {
-            font-size: 2rem;
-        }
-        
-        .welcome-banner h2 {
-            margin: 0;
-            font-size: 1.3rem;
-        }
-        
-        .welcome-banner p {
-            margin: 5px 0 0;
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard-container {
-                flex-direction: column;
-            }
-            
-            .sidebar {
-                width: 100%;
-                margin-bottom: 15px;
-            }
-        }
-    </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-robot"></i> Learning Agent</h1>
-            <p>Your CBSE Class 11 Physics Tutor</p>
-        </header>
-        
-        <main>
-            <div class="dashboard-container">
-                <div class="main-content">
-                    <div class="chat-container">
-                        <div id="chat-messages" class="chat-messages">
-                            <!-- Messages will be added here dynamically -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>Learning Hub</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Subject Selection -->
+                <div class="section">
+                    <h3><i class="fas fa-book"></i> Subjects</h3>
+                    <div class="subject-grid">
+                        <button class="subject-btn active" data-subject="physics">
+                            <i class="fas fa-atom"></i>
+                            <span>Physics</span>
+                        </button>
+                        <button class="subject-btn" data-subject="chemistry">
+                            <i class="fas fa-flask"></i>
+                            <span>Chemistry</span>
+                        </button>
+                        <button class="subject-btn" data-subject="math">
+                            <i class="fas fa-calculator"></i>
+                            <span>Math</span>
+                        </button>
+                        <button class="subject-btn" data-subject="biology">
+                            <i class="fas fa-dna"></i>
+                            <span>Biology</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Class Selection -->
+                <div class="section">
+                    <h3><i class="fas fa-layer-group"></i> Class</h3>
+                    <div class="class-selector">
+                        <button class="class-btn" data-class="9">9</button>
+                        <button class="class-btn" data-class="10">10</button>
+                        <button class="class-btn active" data-class="11">11</button>
+                        <button class="class-btn" data-class="12">12</button>
+                    </div>
+                </div>
+                
+                <!-- Quick Topics -->
+                <div class="section">
+                    <h3><i class="fas fa-lightbulb"></i> Quick Topics</h3>
+                    <div class="topic-pills">
+                        <span class="topic-pill" data-topic="Motion">Motion</span>
+                        <span class="topic-pill" data-topic="Forces">Forces</span>
+                        <span class="topic-pill" data-topic="Energy">Energy</span>
+                        <span class="topic-pill" data-topic="Waves">Waves</span>
+                        <span class="topic-pill" data-topic="Electricity">Electricity</span>
+                        <span class="topic-pill" data-topic="Magnetism">Magnetism</span>
+                    </div>
+                </div>
+                
+                <!-- Progress Section -->
+                <div class="section">
+                    <h3><i class="fas fa-chart-line"></i> Progress</h3>
+                    <div class="progress-card">
+                        <div class="progress-item">
+                            <span class="progress-label">Physics Mastery</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 65%"></div>
+                            </div>
+                            <span class="progress-value">65%</span>
                         </div>
-                        
-                        <div class="chat-input">
-                            <form id="message-form">
-                                <input type="text" id="user-input" placeholder="Type 'let's start' to begin..." autocomplete="off">
-                                <button type="submit">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </form>
+                        <div class="progress-item">
+                            <span class="progress-label">Topics Covered</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 40%"></div>
+                            </div>
+                            <span class="progress-value">8/20</span>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
         
-        <footer>
-            <p>© 2025 Learning Agent - CBSE Class 11 Physics <i class="fas fa-atom"></i></p>
-        </footer>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="chat-header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <div class="agent-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="header-info">
+                            <h1>Learning Agent</h1>
+                            <p id="subject-info">CBSE Class 11 Physics Tutor</p>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <button class="header-btn" id="toggle-sidebar">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <button class="header-btn" id="clear-chat">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <!-- Welcome message will be added here -->
+                </div>
+                
+                <!-- Suggested Questions -->
+                <div class="suggestions" id="suggestions">
+                    <div class="suggestion-header">
+                        <i class="fas fa-magic"></i>
+                        <span>Try asking about:</span>
+                    </div>
+                    <div class="suggestion-grid">
+                        <button class="suggestion-btn" data-question="Explain Newton's laws of motion">
+                            <i class="fas fa-rocket"></i>
+                            Newton's Laws
+                        </button>
+                        <button class="suggestion-btn" data-question="What is kinetic energy?">
+                            <i class="fas fa-bolt"></i>
+                            Kinetic Energy
+                        </button>
+                        <button class="suggestion-btn" data-question="How do waves work?">
+                            <i class="fas fa-water"></i>
+                            Wave Motion
+                        </button>
+                        <button class="suggestion-btn" data-question="Explain electric current">
+                            <i class="fas fa-plug"></i>
+                            Electric Current
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="chat-input">
+                    <form id="message-form">
+                        <div class="input-container">
+                            <button type="button" class="attachment-btn" title="Upload file">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <input type="text" id="user-input" placeholder="Ask me anything about physics..." autocomplete="off">
+                            <button type="submit" class="send-btn" title="Send message">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
