@@ -95,12 +95,13 @@ def signup():
             conn.close()
             return jsonify({'success': False, 'message': 'Username already exists'})
         
-        # Create new student
+        # Create new student with default profile image
+        default_avatar = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiA1MmMwLTExIDktMjAgMjAtMjBzMjAgOSAyMCAyMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+"
         hashed_password = hash_password(password)
         cursor.execute('''
-            INSERT INTO Student (name, class, username, password, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (name, class_name, username, hashed_password, datetime.now(), datetime.now()))
+            INSERT INTO Student (name, class, username, password, profile_image, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, class_name, username, hashed_password, default_avatar, datetime.now(), datetime.now()))
         
         student_id = cursor.lastrowid
         conn.commit()
@@ -163,6 +164,173 @@ def logout():
 @login_required
 def index():
     return render_template('index.html')
+
+@app.route('/api/progress')
+@login_required
+def get_progress():
+    try:
+        student_id = session.get('student_id')
+        if not student_id:
+            return jsonify({'success': False, 'message': 'Not authenticated'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get progress for Physics (our main subject)
+        cursor.execute('''
+            SELECT overall_progress, last_chapter_covered, next_chapter
+            FROM Progress_tracker 
+            WHERE studentId = ? AND subject = 'Physics'
+        ''', (student_id,))
+        
+        progress_data = cursor.fetchone()
+        
+        if progress_data:
+            overall_progress = progress_data['overall_progress'] or 0
+            last_chapter = progress_data['last_chapter_covered'] or ''
+            next_chapter = progress_data['next_chapter'] or ''
+        else:
+            # No progress record exists, create one with 0 progress
+            cursor.execute('''
+                INSERT INTO Progress_tracker (studentId, subject, overall_progress, last_login_at)
+                VALUES (?, 'Physics', 0, ?)
+            ''', (student_id, datetime.now()))
+            conn.commit()
+            overall_progress = 0
+            last_chapter = ''
+            next_chapter = ''
+        
+        # Calculate topics covered based on progress (assuming 20 total topics)
+        total_topics = 20
+        topics_covered = int((overall_progress / 100) * total_topics) if overall_progress > 0 else 0
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'overall_progress': overall_progress,
+                'topics_covered': topics_covered,
+                'total_topics': total_topics,
+                'last_chapter': last_chapter,
+                'next_chapter': next_chapter
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Progress fetch error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred while fetching progress'})
+
+@app.route('/api/progress', methods=['POST'])
+@login_required
+def update_progress():
+    try:
+        student_id = session.get('student_id')
+        if not student_id:
+            return jsonify({'success': False, 'message': 'Not authenticated'})
+        
+        data = request.get_json()
+        overall_progress = data.get('overall_progress', 0)
+        last_chapter = data.get('last_chapter', '')
+        next_chapter = data.get('next_chapter', '')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Update or insert progress
+        cursor.execute('''
+            INSERT OR REPLACE INTO Progress_tracker 
+            (studentId, subject, overall_progress, last_chapter_covered, next_chapter, last_login_at)
+            VALUES (?, 'Physics', ?, ?, ?, ?)
+        ''', (student_id, overall_progress, last_chapter, next_chapter, datetime.now()))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Progress updated successfully'})
+        
+    except Exception as e:
+        logger.error(f"Progress update error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred while updating progress'})
+
+@app.route('/api/profile')
+@login_required
+def get_profile():
+    try:
+        student_id = session.get('student_id')
+        if not student_id:
+            return jsonify({'success': False, 'message': 'Not authenticated'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get student profile data
+        cursor.execute('''
+            SELECT name, class, profile_image
+            FROM Student 
+            WHERE id = ?
+        ''', (student_id,))
+        
+        student_data = cursor.fetchone()
+        conn.close()
+        
+        if not student_data:
+            return jsonify({'success': False, 'message': 'Student not found'})
+        
+        # Default kid avatar if no profile image
+        default_avatar = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiA1MmMwLTExIDktMjAgMjAtMjBzMjAgOSAyMCAyMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+"
+        
+        profile_image = student_data['profile_image'] if student_data['profile_image'] else default_avatar
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'name': student_data['name'],
+                'class': student_data['class'],
+                'profile_image': profile_image
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Profile fetch error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred while fetching profile'})
+
+@app.route('/api/profile/image', methods=['POST'])
+@login_required
+def update_profile_image():
+    try:
+        student_id = session.get('student_id')
+        if not student_id:
+            return jsonify({'success': False, 'message': 'Not authenticated'})
+        
+        data = request.get_json()
+        profile_image = data.get('profile_image')
+        
+        if not profile_image:
+            return jsonify({'success': False, 'message': 'No image provided'})
+        
+        # Validate that it's a valid base64 image
+        if not profile_image.startswith('data:image/'):
+            return jsonify({'success': False, 'message': 'Invalid image format'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Update profile image
+        cursor.execute('''
+            UPDATE Student 
+            SET profile_image = ?, updated_at = ?
+            WHERE id = ?
+        ''', (profile_image, datetime.now(), student_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Profile image updated successfully'})
+        
+    except Exception as e:
+        logger.error(f"Profile image update error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred while updating profile image'})
 
 # Socket events
 @socketio.on('connect')

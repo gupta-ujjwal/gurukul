@@ -21,6 +21,25 @@
             </div>
             
             <div class="sidebar-content">
+                <!-- User Profile Section -->
+                <div class="section">
+                    <div class="user-profile">
+                        <div class="profile-avatar">
+                            <img id="profile-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiA1MmMwLTExIDktMjAgMjAtMjBzMjAgOSAyMCAyMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+" alt="Profile" />
+                            <div class="profile-edit-overlay">
+                                <button class="edit-profile-btn" id="edit-profile-btn" title="Change profile picture">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="profile-info">
+                            <h4 id="user-name">Student</h4>
+                            <p id="user-class">Class 11</p>
+                        </div>
+                    </div>
+                    <input type="file" id="profile-image-input" accept="image/*" style="display: none;" />
+                </div>
+                
                 <!-- Subject Selection -->
                 <div class="section">
                     <h3><i class="fas fa-book"></i> Subjects</h3>
@@ -29,15 +48,15 @@
                             <i class="fas fa-atom"></i>
                             <span>Physics</span>
                         </button>
-                        <button class="subject-btn" data-subject="chemistry">
+                        <button class="subject-btn disabled" data-subject="chemistry" disabled>
                             <i class="fas fa-flask"></i>
                             <span>Chemistry</span>
                         </button>
-                        <button class="subject-btn" data-subject="math">
+                        <button class="subject-btn disabled" data-subject="math" disabled>
                             <i class="fas fa-calculator"></i>
                             <span>Math</span>
                         </button>
-                        <button class="subject-btn" data-subject="biology">
+                        <button class="subject-btn disabled" data-subject="biology" disabled>
                             <i class="fas fa-dna"></i>
                             <span>Biology</span>
                         </button>
@@ -48,26 +67,14 @@
                 <div class="section">
                     <h3><i class="fas fa-layer-group"></i> Class</h3>
                     <div class="class-selector">
-                        <button class="class-btn" data-class="9">9</button>
-                        <button class="class-btn" data-class="10">10</button>
+                        <button class="class-btn disabled" data-class="9" disabled>9</button>
+                        <button class="class-btn disabled" data-class="10" disabled>10</button>
                         <button class="class-btn active" data-class="11">11</button>
-                        <button class="class-btn" data-class="12">12</button>
+                        <button class="class-btn disabled" data-class="12" disabled>12</button>
                     </div>
                 </div>
                 
-                <!-- Quick Topics -->
-                <div class="section">
-                    <h3><i class="fas fa-lightbulb"></i> Quick Topics</h3>
-                    <div class="topic-pills">
-                        <span class="topic-pill" data-topic="Motion">Motion</span>
-                        <span class="topic-pill" data-topic="Forces">Forces</span>
-                        <span class="topic-pill" data-topic="Energy">Energy</span>
-                        <span class="topic-pill" data-topic="Waves">Waves</span>
-                        <span class="topic-pill" data-topic="Electricity">Electricity</span>
-                        <span class="topic-pill" data-topic="Magnetism">Magnetism</span>
-                    </div>
-                </div>
-                
+
                 <!-- Progress Section -->
                 <div class="section">
                     <h3><i class="fas fa-chart-line"></i> Progress</h3>
@@ -75,16 +82,16 @@
                         <div class="progress-item">
                             <span class="progress-label">Physics Mastery</span>
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: 65%"></div>
+                                <div class="progress-fill" id="mastery-progress-fill" style="width: 0%"></div>
                             </div>
-                            <span class="progress-value">65%</span>
+                            <span class="progress-value" id="mastery-progress-value">0%</span>
                         </div>
                         <div class="progress-item">
                             <span class="progress-label">Topics Covered</span>
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: 40%"></div>
+                                <div class="progress-fill" id="topics-progress-fill" style="width: 0%"></div>
                             </div>
-                            <span class="progress-value">8/20</span>
+                            <span class="progress-value" id="topics-progress-value">0/20</span>
                         </div>
                     </div>
                 </div>

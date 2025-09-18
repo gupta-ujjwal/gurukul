@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const userInput = document.getElementById('user-input');
     const subjectButtons = document.querySelectorAll('.subject-btn');
     const classButtons = document.querySelectorAll('.class-btn');
-    const topicPills = document.querySelectorAll('.topic-pill');
+    // Removed topic pills - quick topics section was removed
     const suggestionButtons = document.querySelectorAll('.suggestion-btn');
     const toggleSidebarBtn = document.getElementById('toggle-sidebar');
     const clearChatBtn = document.getElementById('clear-chat');
@@ -15,6 +15,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize UI interactions
     initializeUIInteractions();
+    
+    // Initialize profile editing
+    initializeProfileEditing();
+    
+    // Load user progress data
+    loadUserProgress();
+    
+    // Load user profile data
+    loadUserProfile();
     
     // Initialize Socket.io connection with error handling
     const socket = io({
@@ -376,6 +385,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Subject button click handlers
         subjectButtons.forEach(button => {
             button.addEventListener('click', function() {
+                // Check if button is disabled
+                if (this.classList.contains('disabled') || this.disabled) {
+                    showSystemMessage('This subject is not yet available. Only Class 11 Physics is currently supported.', 'warning');
+                    return;
+                }
+                
                 // Remove active class from all subject buttons
                 subjectButtons.forEach(btn => btn.classList.remove('active'));
                 // Add active class to clicked button
@@ -389,14 +404,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Add a system message about subject change
                 showSystemMessage(`Switched to ${subjectName} for Class ${activeClass}`, 'success');
                 
-                // Update topic pills based on subject
-                updateTopicPills(subjectName);
+                // Topic pills functionality removed
             });
         });
         
         // Class button click handlers
         classButtons.forEach(button => {
             button.addEventListener('click', function() {
+                // Check if button is disabled
+                if (this.classList.contains('disabled') || this.disabled) {
+                    showSystemMessage('This class is not yet available. Only Class 11 Physics is currently supported.', 'warning');
+                    return;
+                }
+                
                 // Remove active class from all class buttons
                 classButtons.forEach(btn => btn.classList.remove('active'));
                 // Add active class to clicked button
@@ -412,20 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Topic pill click handlers
-        topicPills.forEach(pill => {
-            pill.addEventListener('click', function() {
-                const topicName = this.textContent;
-                userInput.value = `Tell me about ${topicName}`;
-                userInput.focus();
-                
-                // Add visual feedback
-                this.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    this.style.transform = '';
-                }, 150);
-            });
-        });
+        // Topic pills removed - quick topics section was removed
         
         // Suggestion button click handlers
         suggestionButtons.forEach(button => {
@@ -501,36 +508,206 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function updateTopicPills(subjectName) {
-        const topicData = {
-            'Physics': ['Motion', 'Forces', 'Energy', 'Waves', 'Electricity', 'Magnetism'],
-            'Chemistry': ['Atoms', 'Molecules', 'Reactions', 'Acids', 'Bases', 'Organic'],
-            'Math': ['Algebra', 'Geometry', 'Calculus', 'Statistics', 'Trigonometry', 'Probability'],
-            'Biology': ['Cells', 'Genetics', 'Evolution', 'Ecology', 'Anatomy', 'Physiology']
+    // updateTopicPills function removed - quick topics section was removed
+    
+    // Function to load user progress data
+    function loadUserProgress() {
+        fetch('/api/progress')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateProgressDisplay(data.data);
+                } else {
+                    console.error('Failed to load progress:', data.message);
+                    // Keep default 0% progress if fetch fails
+                }
+            })
+            .catch(error => {
+                console.error('Error loading progress:', error);
+                // Keep default 0% progress if fetch fails
+            });
+    }
+    
+    // Function to update progress display
+    function updateProgressDisplay(progressData) {
+        const masteryFill = document.getElementById('mastery-progress-fill');
+        const masteryValue = document.getElementById('mastery-progress-value');
+        const topicsFill = document.getElementById('topics-progress-fill');
+        const topicsValue = document.getElementById('topics-progress-value');
+        
+        if (masteryFill && masteryValue) {
+            const masteryPercent = progressData.overall_progress || 0;
+            masteryFill.style.width = `${masteryPercent}%`;
+            masteryValue.textContent = `${masteryPercent}%`;
+        }
+        
+        if (topicsFill && topicsValue) {
+            const topicsCovered = progressData.topics_covered || 0;
+            const totalTopics = progressData.total_topics || 20;
+            const topicsPercent = totalTopics > 0 ? (topicsCovered / totalTopics) * 100 : 0;
+            
+            topicsFill.style.width = `${topicsPercent}%`;
+            topicsValue.textContent = `${topicsCovered}/${totalTopics}`;
+        }
+    }
+    
+    // Function to update user progress (can be called when user completes topics)
+    function updateUserProgress(overallProgress, lastChapter = '', nextChapter = '') {
+        fetch('/api/progress', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                overall_progress: overallProgress,
+                last_chapter: lastChapter,
+                next_chapter: nextChapter
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload progress to reflect changes
+                loadUserProgress();
+                showSystemMessage('Progress updated successfully!', 'success');
+            } else {
+                console.error('Failed to update progress:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating progress:', error);
+        });
+    }
+    
+    // Function to load user profile data
+    function loadUserProfile() {
+        fetch('/api/profile')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Profile data received:', data);
+                if (data.success) {
+                    updateProfileDisplay(data.data);
+                } else {
+                    console.error('Failed to load profile:', data.message);
+                    // Keep default profile if fetch fails
+                }
+            })
+            .catch(error => {
+                console.error('Error loading profile:', error);
+                // Keep default profile if fetch fails
+            });
+    }
+    
+    // Function to update profile display
+    function updateProfileDisplay(profileData) {
+        console.log('Updating profile display with:', profileData);
+        const profileImage = document.getElementById('profile-image');
+        const userName = document.getElementById('user-name');
+        const userClass = document.getElementById('user-class');
+        
+        if (profileImage && profileData.profile_image) {
+            profileImage.src = profileData.profile_image;
+            profileImage.alt = profileData.name || 'Profile';
+        }
+        
+        if (userName && profileData.name) {
+            userName.textContent = profileData.name;
+        }
+        
+        if (userClass && profileData.class) {
+            userClass.textContent = `Class ${profileData.class}`;
+        }
+    }
+    
+    // Function to handle profile image upload
+    function handleProfileImageUpload(file) {
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showSystemMessage('Please select a valid image file', 'error');
+            return;
+        }
+        
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            showSystemMessage('Image size should be less than 2MB', 'error');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Image = e.target.result;
+            updateProfileImage(base64Image);
         };
+        reader.readAsDataURL(file);
+    }
+    
+    // Function to update profile image on server
+    function updateProfileImage(base64Image) {
+        fetch('/api/profile/image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                profile_image: base64Image
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the image display immediately
+                const profileImage = document.getElementById('profile-image');
+                if (profileImage) {
+                    profileImage.src = base64Image;
+                }
+                showSystemMessage('Profile picture updated successfully!', 'success');
+            } else {
+                console.error('Failed to update profile image:', data.message);
+                showSystemMessage('Failed to update profile picture', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating profile image:', error);
+            showSystemMessage('Error updating profile picture', 'error');
+        });
+    }
+    
+    // Function to initialize profile editing functionality
+    function initializeProfileEditing() {
+        const editProfileBtn = document.getElementById('edit-profile-btn');
+        const profileImageInput = document.getElementById('profile-image-input');
+        const profileAvatar = document.querySelector('.profile-avatar');
         
-        const topics = topicData[subjectName] || topicData['Physics'];
-        const topicContainer = document.querySelector('.topic-pills');
+        // Handle edit button click
+        if (editProfileBtn) {
+            editProfileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (profileImageInput) {
+                    profileImageInput.click();
+                }
+            });
+        }
         
-        if (topicContainer) {
-            topicContainer.innerHTML = '';
-            topics.forEach(topic => {
-                const pill = document.createElement('span');
-                pill.className = 'topic-pill';
-                pill.setAttribute('data-topic', topic);
-                pill.textContent = topic;
-                pill.addEventListener('click', function() {
-                    const topicName = this.textContent;
-                    userInput.value = `Tell me about ${topicName}`;
-                    userInput.focus();
-                    
-                    // Add visual feedback
-                    this.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        this.style.transform = '';
-                    }, 150);
-                });
-                topicContainer.appendChild(pill);
+        // Handle avatar click (alternative way to edit)
+        if (profileAvatar) {
+            profileAvatar.addEventListener('click', function() {
+                if (profileImageInput) {
+                    profileImageInput.click();
+                }
+            });
+        }
+        
+        // Handle file selection
+        if (profileImageInput) {
+            profileImageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    handleProfileImageUpload(file);
+                }
+                // Reset the input so the same file can be selected again
+                e.target.value = '';
             });
         }
     }
@@ -540,6 +717,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add initial welcome message
     setTimeout(() => {
-        addMessage('assistant', '🎓 Welcome to your Learning Agent! I\'m here to help you master physics concepts. You can:\n\n• Ask questions about any physics topic\n• Use the sidebar to switch subjects and classes\n• Click on topic pills for quick questions\n• Try the suggested questions below\n\nWhat would you like to learn about today?');
+        addMessage('assistant', '🎓 Welcome to your Learning Agent! I\'m here to help you master physics concepts. You can:\n\n• Ask questions about any physics topic\n• Use the sidebar to switch subjects and classes\n• Try the suggested questions below\n\nWhat would you like to learn about today?');
     }, 1000);
 });

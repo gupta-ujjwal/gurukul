@@ -16,6 +16,7 @@ CREATE TABLE Student (
     class VARCHAR(50) NOT NULL,
     username VARCHAR(80) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    profile_image TEXT, -- Base64 encoded image string
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
