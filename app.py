@@ -119,36 +119,46 @@ async def process_message(user_input):
         logger.error(f"Exception in process_message: {str(e)}", exc_info=True)
         socketio.emit('message', {'role': 'assistant', 'content': f"An error occurred: {str(e)}"})
 
-def convert_markdown_to_html(text):
-    """Convert markdown-style formatting to HTML."""
-    if not text:
-        return text
-    
-    # Convert markdown-style bold to HTML
-    text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
-    
-    # Convert markdown-style headers to HTML
-    text = re.sub(r'###\s+([^\n]+)', r'<h3>\1</h3>', text)
-    text = re.sub(r'##\s+([^\n]+)', r'<h2>\1</h2>', text)
-    text = re.sub(r'#\s+([^\n]+)', r'<h1>\1</h1>', text)
-    
-    # Convert markdown-style italic to HTML
-    text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
-    
-    # Convert markdown-style unordered lists
-    text = re.sub(r'^\s*-\s+(.+)$', r'<li>\1</li>', text, flags=re.MULTILINE)
-    
-    # Convert markdown-style ordered lists
-    text = re.sub(r'^\s*\d+\.\s+(.+)$', r'<li>\1</li>', text, flags=re.MULTILINE)
-    
-    # Wrap adjacent list items in ul tags (simplified approach)
-    text = re.sub(r'(<li>.*?</li>)(?!\n<li>)', r'<ul>\1</ul>', text, flags=re.DOTALL)
-    
-    # Convert line breaks to <br> tags for better HTML display
-    text = re.sub(r'\n\n+', '<br><br>', text)
-    text = re.sub(r'\n', '<br>', text)
-    
-    return text
+def convert_markdown_to_html(markdown_text: str) -> str:
+    """
+    Convert Markdown text to clean, formatted plain text.
+    """
+
+    text = markdown_text
+
+    # Convert headings (e.g., ## Heading → HEADING\n)
+    text = re.sub(r'^(#+)\s*(.*)', lambda m: m.group(2).upper(), text, flags=re.MULTILINE)
+
+    # Bold (**text** or __text__)
+    text = re.sub(r'(\*\*|__)(.*?)\1', r'\2', text)
+
+    # Italics (*text* or _text_)
+    text = re.sub(r'(\*|_)(.*?)\1', r'\2', text)
+
+    # Inline code (`code`)
+    text = re.sub(r'`([^`]*)`', r'\1', text)
+
+    # Code blocks (```...```)
+    text = re.sub(r'```[\s\S]*?```', lambda m: m.group(0).replace("```", "").strip(), text)
+
+    # Links: [text](url) → text (url)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1 (\2)', text)
+
+    # Images: ![alt](url) → alt (url)
+    text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'\1 (\2)', text)
+
+    # Lists: keep bullets consistent
+    text = re.sub(r'^\s*[-*+]\s+', '• ', text, flags=re.MULTILINE)
+    text = re.sub(r'^\s*\d+\.\s+', lambda m: f"{m.group(0).strip()} ", text, flags=re.MULTILINE)
+
+    # Remove extra markdown characters (>, --- separators)
+    text = re.sub(r'^>\s?', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\n-{3,}\n', '\n', text)
+
+    # Collapse multiple newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
 
 # Run the app
 if __name__ == '__main__':
