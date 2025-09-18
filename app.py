@@ -4,7 +4,10 @@ import json
 import logging
 import sys
 import re
-from flask import Flask, render_template, request, jsonify
+import sqlite3
+import hashlib
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_socketio import SocketIO, emit
 from ContextClass import LearningContext
 from AgentFactory import create_learning_agent, run_learning_agent_async
@@ -22,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'learning-agent-secret-key'
+app.config['DATABASE'] = 'instance/learning_agent.db'
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
 # Initialize the learning context
@@ -45,8 +49,118 @@ def initialize_agent():
         logger.error(f"Failed to initialize agent: {str(e)}")
         raise
 
+# Database helper functions
+def get_db_connection():
+    conn = sqlite3.connect(app.config['DATABASE'])
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# Authentication middleware
+def login_required(f):
+    def decorated_function(*args, **kwargs):
+        if 'student_id' not in session:
+            return redirect(url_for('auth'))
+        return f(*args, **kwargs)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
 # Routes
+@app.route('/auth')
+def auth():
+    if 'student_id' in session:
+        return redirect(url_for('index'))
+    return render_template('auth.html')
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        class_name = data.get('class')
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not all([name, class_name, username, password]):
+            return jsonify({'success': False, 'message': 'All fields are required'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if username already exists
+        cursor.execute('SELECT id FROM Student WHERE username = ?', (username,))
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'message': 'Username already exists'})
+        
+        # Create new student
+        hashed_password = hash_password(password)
+        cursor.execute('''
+            INSERT INTO Student (name, class, username, password, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (name, class_name, username, hashed_password, datetime.now(), datetime.now()))
+        
+        student_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Account created successfully'})
+        
+    except Exception as e:
+        logger.error(f"Signup error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred during signup'})
+
+@app.route('/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not all([username, password]):
+            return jsonify({'success': False, 'message': 'Username and password are required'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Find student by username
+        cursor.execute('SELECT id, password FROM Student WHERE username = ?', (username,))
+        student = cursor.fetchone()
+        
+        if not student:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Invalid username or password'})
+        
+        # Verify password
+        hashed_password = hash_password(password)
+        if student['password'] != hashed_password:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Invalid username or password'})
+        
+        # Update last login
+        cursor.execute('UPDATE Student SET updated_at = ? WHERE id = ?', (datetime.now(), student['id']))
+        conn.commit()
+        conn.close()
+        
+        # Set session
+        session['student_id'] = student['id']
+        session['username'] = username
+        
+        return jsonify({'success': True, 'message': 'Login successful'})
+        
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred during login'})
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('auth'))
+
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
