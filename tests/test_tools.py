@@ -17,10 +17,10 @@ def test_imports():
     
     print("\n📋 Testing Imports...")
     try:
-        from ContextClass import LearningContext, LearningState
-        from ToolFactory import LEARNING_TOOLS, get_current_context, set_current_context
-        from config.database import get_db
-        from models import Student, Progress, Course, Section
+        from src.agents.ContextClass import LearningContext, LearningState
+        from src.tools.ToolFactory import LEARNING_TOOLS, get_current_context, set_current_context
+        from src.db.database import get_db
+        from src.models.models import Student, Progress, Course, Section
         print("✅ All imports successful")
         return True
     except Exception as e:
@@ -31,7 +31,7 @@ def test_database_connection():
     """Test database connection."""
     print("\n📋 Testing Database Connection...")
     try:
-        from config.database import get_db
+        from src.db.database import get_db
         from sqlalchemy import text
         
         # get_db() is a generator, so we need to get the session from it
@@ -55,7 +55,7 @@ def test_context_class():
     """Test LearningContext with database integration."""
     print("\n📋 Testing LearningContext Database Integration...")
     try:
-        from ContextClass import LearningContext
+        from src.agents.ContextClass import LearningContext
         
         # Create a test context
         context = LearningContext(
@@ -84,8 +84,8 @@ def test_tools():
     """Test that tools can be invoked with database integration."""
     print("\n📋 Testing Tools Database Integration...")
     try:
-        from ToolFactory import LEARNING_TOOLS, set_current_context
-        from ContextClass import LearningContext
+        from src.tools.ToolFactory import LEARNING_TOOLS, set_current_context
+        from src.agents.ContextClass import LearningContext
         
         # Set up context
         context = LearningContext(

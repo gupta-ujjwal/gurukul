@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, TypedDict, Annotated
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 import operator
-from config.database import get_db
-from models import Student, Progress, Course, Section
+from ..db.database import get_db
+from ..models.models import Student, Progress, Course, Section
 from sqlalchemy.orm import Session
 import logging
 

@@ -1,7 +1,7 @@
 import asyncio
 import os
-from ContextClass import LearningContext
-from AgentFactory import create_learning_agent, run_learning_agent_async
+from src.agents.ContextClass import LearningContext
+from src.agents.AgentFactory import create_learning_agent, run_learning_agent_async
 
 # Learning context will be created dynamically
 context = None

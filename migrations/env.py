@@ -11,8 +11,8 @@ from alembic import context
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import models and database configuration
-from models import Base
-from config.database import DATABASE_URL
+from src.models.models import Base
+from src.db.database import DATABASE_URL
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
