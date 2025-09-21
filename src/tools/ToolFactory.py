@@ -1,10 +1,10 @@
 import os
 from langchain_core.tools import tool
-from ContextClass import LearningContext, LearningState
+from ..agents.ContextClass import LearningContext, LearningState
 from typing import List
 import re
-from config.database import get_db
-from models import Student, Progress, Course, Section, Chapter
+from ..db.database import get_db
+from ..models.models import Student, Progress, Course, Section, Chapter
 from sqlalchemy.orm import Session
 import logging
 

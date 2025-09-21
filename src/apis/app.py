@@ -7,11 +7,16 @@ import re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_socketio import SocketIO, emit
-from ContextClass import LearningContext
-from AgentFactory import create_learning_agent, run_learning_agent_async
-from config.database import SessionLocal, engine, Base
-from models import *
-from utils.auth import get_password_hash, verify_password, is_password_strong
+
+# Add the project root to Python path to enable imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
+
+from src.agents.ContextClass import LearningContext
+from src.agents.AgentFactory import create_learning_agent, run_learning_agent_async
+from src.db.database import SessionLocal, engine, Base
+from src.models.models import *
+from src.utils.auth import get_password_hash, verify_password, is_password_strong
 
 # Configure logging
 logging.basicConfig(
@@ -24,7 +29,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__)
+# Use absolute paths for static and template folders
+basedir = os.path.abspath(os.path.dirname(__file__))
+project_root = os.path.dirname(os.path.dirname(basedir))  # Go up two levels from src/apis to project root
+static_folder = os.path.join(project_root, 'web', 'static')
+template_folder = os.path.join(project_root, 'web', 'templates')
+
+app = Flask(__name__, static_folder=static_folder, template_folder=template_folder)
 app.config['SECRET_KEY'] = 'learning-agent-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 

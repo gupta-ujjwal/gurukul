@@ -5,8 +5,8 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_litellm import ChatLiteLLM
-from ContextClass import LearningContext, LearningState
-from ToolFactory import LEARNING_TOOLS, set_current_context
+from .ContextClass import LearningContext, LearningState
+from ..tools.ToolFactory import LEARNING_TOOLS, set_current_context
 
 # ---------------- LangGraph Agent ----------------
 
