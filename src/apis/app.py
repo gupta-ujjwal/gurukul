@@ -17,6 +17,7 @@ from src.agents.AgentFactory import create_learning_agent, run_learning_agent_as
 from src.db.database import SessionLocal, engine, Base
 from src.models.models import *
 from src.utils.auth import get_password_hash, verify_password, is_password_strong
+from src.routes.admin import admin_bp
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +39,9 @@ template_folder = os.path.join(project_root, 'web', 'templates')
 app = Flask(__name__, static_folder=static_folder, template_folder=template_folder)
 app.config['SECRET_KEY'] = 'learning-agent-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
+
+# Register admin blueprint
+app.register_blueprint(admin_bp)
 
 # Learning context will be created dynamically per user session
 context = None
