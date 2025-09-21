@@ -4,13 +4,14 @@ import json
 import logging
 import sys
 import re
-import sqlite3
-import hashlib
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_socketio import SocketIO, emit
 from ContextClass import LearningContext
 from AgentFactory import create_learning_agent, run_learning_agent_async
+from config.database import SessionLocal, engine, Base
+from models import *
+from utils.auth import get_password_hash, verify_password, is_password_strong
 
 # Configure logging
 logging.basicConfig(
@@ -25,16 +26,10 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'learning-agent-secret-key'
-app.config['DATABASE'] = 'instance/learning_agent.db'
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
-# Initialize the learning context
-context = LearningContext(
-    session_id="web_session_001",
-    user_id="user_123",  # In real scenarios, fetch from auth system
-    progress={},
-    past_messages=[],
-)
+# Learning context will be created dynamically per user session
+context = None
 
 # Initialize the LangGraph agent
 agent_graph = None
@@ -49,14 +44,44 @@ def initialize_agent():
         logger.error(f"Failed to initialize agent: {str(e)}")
         raise
 
-# Database helper functions
-def get_db_connection():
-    conn = sqlite3.connect(app.config['DATABASE'])
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_user_context():
+    """Get or create learning context for the current user."""
+    global context
+    
+    # If user is authenticated, create context with their data
+    if 'student_id' in session:
+        student_id = session['student_id']
+        db = get_db()
+        try:
+            student = db.query(Student).filter(Student.id == student_id).first()
+            if student:
+                context = LearningContext(
+                    user_id=student.username,
+                    session_id=session.get('session_id', f"session_{student_id}"),
+                    progress={},
+                    past_messages=[],
+                )
+                return context
+        finally:
+            db.close()
+    
+    # If no authenticated user, return None or create a temporary context
+    return None
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+# Database helper functions
+def get_db():
+    """Get database session."""
+    db = SessionLocal()
+    try:
+        return db
+    finally:
+        db.close()
+
+# Initialize database tables
+def init_db():
+    """Initialize database tables."""
+    Base.metadata.create_all(bind=engine)
+    logger.info("✓ Database tables created successfully")
 
 # Authentication middleware
 def login_required(f):
@@ -76,84 +101,122 @@ def auth():
 
 @app.route('/signup', methods=['POST'])
 def signup():
+    """Handle user registration."""
     try:
         data = request.get_json()
-        name = data.get('name')
-        class_name = data.get('class')
-        username = data.get('username')
-        password = data.get('password')
+        name = data.get('name', '').strip()
+        class_name = data.get('class', '').strip()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
         
+        # Validate input
         if not all([name, class_name, username, password]):
             return jsonify({'success': False, 'message': 'All fields are required'})
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Validate class is a number
+        try:
+            class_grade = int(class_name)
+            if not (9 <= class_grade <= 12):
+                return jsonify({'success': False, 'message': 'Class must be between 9 and 12'})
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Class must be a valid number'})
         
-        # Check if username already exists
-        cursor.execute('SELECT id FROM Student WHERE username = ?', (username,))
-        if cursor.fetchone():
-            conn.close()
-            return jsonify({'success': False, 'message': 'Username already exists'})
+        # Check password strength
+        is_strong, strength_msg = is_password_strong(password)
+        if not is_strong:
+            return jsonify({'success': False, 'message': strength_msg})
         
-        # Create new student with default profile image
-        default_avatar = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiA1MmMwLTExIDktMjAgMjAtMjBzMjAgOSAyMCAyMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+"
-        hashed_password = hash_password(password)
-        cursor.execute('''
-            INSERT INTO Student (name, class, username, password, profile_image, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (name, class_name, username, hashed_password, default_avatar, datetime.now(), datetime.now()))
-        
-        student_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Account created successfully'})
-        
+        db = get_db()
+        try:
+            # Check if username already exists
+            existing_student = db.query(Student).filter(Student.username == username).first()
+            if existing_student:
+                return jsonify({'success': False, 'message': 'Username already exists'})
+            
+            # Create new student without default profile image
+            new_student = Student(
+                full_name=name,
+                class_grade=class_grade,
+                username=username,
+                hashed_password=get_password_hash(password),
+                profile_image=None  # No default avatar
+            )
+            
+            db.add(new_student)
+            db.commit()
+            db.refresh(new_student)
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Account created successfully',
+                'student_id': new_student.id
+            })
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Signup error: {str(e)}")
+            return jsonify({'success': False, 'message': 'An error occurred during signup'})
+        finally:
+            db.close()
+            
     except Exception as e:
-        logger.error(f"Signup error: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred during signup'})
+        logger.error(f"Signup request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Invalid request data'})
 
 @app.route('/login', methods=['POST'])
 def login():
+    """Handle user login."""
     try:
         data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
         
         if not all([username, password]):
             return jsonify({'success': False, 'message': 'Username and password are required'})
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Find student by username
-        cursor.execute('SELECT id, password FROM Student WHERE username = ?', (username,))
-        student = cursor.fetchone()
-        
-        if not student:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Invalid username or password'})
-        
-        # Verify password
-        hashed_password = hash_password(password)
-        if student['password'] != hashed_password:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Invalid username or password'})
-        
-        # Update last login
-        cursor.execute('UPDATE Student SET updated_at = ? WHERE id = ?', (datetime.now(), student['id']))
-        conn.commit()
-        conn.close()
-        
-        # Set session
-        session['student_id'] = student['id']
-        session['username'] = username
-        
-        return jsonify({'success': True, 'message': 'Login successful'})
-        
+        db = get_db()
+        try:
+            # Find student by username
+            student = db.query(Student).filter(Student.username == username).first()
+            
+            if not student:
+                return jsonify({'success': False, 'message': 'Invalid username or password'})
+            
+            # Verify password
+            if not verify_password(password, student.hashed_password):
+                return jsonify({'success': False, 'message': 'Invalid username or password'})
+            
+            # Update last login timestamp
+            student.updated_at = datetime.now()
+            db.commit()
+            
+            # Set session
+            session['student_id'] = student.id
+            session['username'] = student.username
+            session['full_name'] = student.full_name
+            session['class_grade'] = student.class_grade
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Login successful',
+                'student': {
+                    'id': student.id,
+                    'name': student.full_name,
+                    'class': student.class_grade,
+                    'username': student.username
+                }
+            })
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Login error: {str(e)}")
+            return jsonify({'success': False, 'message': 'An error occurred during login'})
+        finally:
+            db.close()
+            
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred during login'})
+        logger.error(f"Login request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Invalid request data'})
 
 @app.route('/logout')
 def logout():
@@ -168,143 +231,210 @@ def index():
 @app.route('/api/progress')
 @login_required
 def get_progress():
+    """Get student progress data."""
     try:
         student_id = session.get('student_id')
         if not student_id:
             return jsonify({'success': False, 'message': 'Not authenticated'})
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get progress for Physics (our main subject)
-        cursor.execute('''
-            SELECT overall_progress, last_chapter_covered, next_chapter
-            FROM Progress_tracker 
-            WHERE studentId = ? AND subject = 'Physics'
-        ''', (student_id,))
-        
-        progress_data = cursor.fetchone()
-        
-        if progress_data:
-            overall_progress = progress_data['overall_progress'] or 0
-            last_chapter = progress_data['last_chapter_covered'] or ''
-            next_chapter = progress_data['next_chapter'] or ''
-        else:
-            # No progress record exists, create one with 0 progress
-            cursor.execute('''
-                INSERT INTO Progress_tracker (studentId, subject, overall_progress, last_login_at)
-                VALUES (?, 'Physics', 0, ?)
-            ''', (student_id, datetime.now()))
-            conn.commit()
-            overall_progress = 0
-            last_chapter = ''
-            next_chapter = ''
-        
-        # Calculate topics covered based on progress (assuming 20 total topics)
-        total_topics = 20
-        topics_covered = int((overall_progress / 100) * total_topics) if overall_progress > 0 else 0
-        
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'overall_progress': overall_progress,
-                'topics_covered': topics_covered,
-                'total_topics': total_topics,
-                'last_chapter': last_chapter,
-                'next_chapter': next_chapter
-            }
-        })
-        
+        db = get_db()
+        try:
+            # Get all progress records for this student
+            progress_records = db.query(Progress).filter(Progress.student_id == student_id).all()
+            
+            # Calculate overall progress
+            if progress_records:
+                total_completion = sum(record.completion_percent for record in progress_records)
+                overall_progress = min(100.0, total_completion / len(progress_records))
+                
+                # Get the most recently accessed chapter/section
+                latest_progress = max(progress_records, key=lambda x: x.last_accessed_at)
+                last_chapter = f"Chapter {latest_progress.chapter.number}: {latest_progress.chapter.title}" if latest_progress.chapter else ''
+                
+                # Simple logic for next chapter (in a real app, this would be more sophisticated)
+                next_chapter = "Continue with next section"
+            else:
+                overall_progress = 0.0
+                last_chapter = ''
+                next_chapter = 'Start with Chapter 1'
+            
+            # Calculate topics covered based on actual sections in database
+            db = get_db()
+            try:
+                # Get total number of sections across all courses
+                total_sections = db.query(Section).count()
+                # Get number of sections with progress > 0 for this student
+                completed_sections = db.query(Progress).filter(
+                    Progress.student_id == student_id,
+                    Progress.completion_percent > 0
+                ).count()
+                
+                total_topics = total_sections if total_sections > 0 else 1
+                topics_covered = completed_sections
+            except Exception as e:
+                logger.error(f"Error calculating topics: {str(e)}")
+                total_topics = 1
+                topics_covered = 0
+            finally:
+                db.close()
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'overall_progress': round(overall_progress, 2),
+                    'topics_covered': topics_covered,
+                    'total_topics': total_topics,
+                    'last_chapter': last_chapter,
+                    'next_chapter': next_chapter
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Progress fetch error: {str(e)}")
+            return jsonify({'success': False, 'message': 'An error occurred while fetching progress'})
+        finally:
+            db.close()
+            
     except Exception as e:
-        logger.error(f"Progress fetch error: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred while fetching progress'})
+        logger.error(f"Progress request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Invalid request'})
 
 @app.route('/api/progress', methods=['POST'])
 @login_required
 def update_progress():
+    """Update student progress."""
     try:
         student_id = session.get('student_id')
         if not student_id:
             return jsonify({'success': False, 'message': 'Not authenticated'})
         
         data = request.get_json()
-        overall_progress = data.get('overall_progress', 0)
-        last_chapter = data.get('last_chapter', '')
-        next_chapter = data.get('next_chapter', '')
+        course_id = data.get('course_id')  # UUID string
+        chapter_id = data.get('chapter_id')  # Integer
+        section_id = data.get('section_id')  # Integer
+        completion_percent = data.get('completion_percent', 0.0)
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Validate input
+        if not all([course_id, chapter_id, section_id]):
+            return jsonify({'success': False, 'message': 'Course, chapter, and section IDs are required'})
         
-        # Update or insert progress
-        cursor.execute('''
-            INSERT OR REPLACE INTO Progress_tracker 
-            (studentId, subject, overall_progress, last_chapter_covered, next_chapter, last_login_at)
-            VALUES (?, 'Physics', ?, ?, ?, ?)
-        ''', (student_id, overall_progress, last_chapter, next_chapter, datetime.now()))
+        try:
+            completion_percent = float(completion_percent)
+            if not (0.0 <= completion_percent <= 100.0):
+                return jsonify({'success': False, 'message': 'Completion percentage must be between 0 and 100'})
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'message': 'Invalid completion percentage'})
         
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Progress updated successfully'})
-        
+        db = get_db()
+        try:
+            # Check if the course, chapter, and section exist
+            course = db.query(Course).filter(Course.id == course_id).first()
+            chapter = db.query(Chapter).filter(Chapter.id == chapter_id).first()
+            section = db.query(Section).filter(Section.id == section_id).first()
+            
+            if not all([course, chapter, section]):
+                return jsonify({'success': False, 'message': 'Invalid course, chapter, or section'})
+            
+            # Check if progress record already exists
+            existing_progress = db.query(Progress).filter(
+                Progress.student_id == student_id,
+                Progress.course_id == course_id,
+                Progress.chapter_id == chapter_id,
+                Progress.section_id == section_id
+            ).first()
+            
+            if existing_progress:
+                # Update existing progress
+                existing_progress.completion_percent = completion_percent
+                existing_progress.last_accessed_at = datetime.now()
+            else:
+                # Create new progress record
+                new_progress = Progress(
+                    student_id=student_id,
+                    course_id=course_id,
+                    chapter_id=chapter_id,
+                    section_id=section_id,
+                    completion_percent=completion_percent
+                )
+                db.add(new_progress)
+            
+            db.commit()
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Progress updated successfully',
+                'completion_percent': completion_percent
+            })
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Progress update error: {str(e)}")
+            return jsonify({'success': False, 'message': 'An error occurred while updating progress'})
+        finally:
+            db.close()
+            
     except Exception as e:
-        logger.error(f"Progress update error: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred while updating progress'})
+        logger.error(f"Progress update request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Invalid request data'})
 
 @app.route('/api/profile')
 @login_required
 def get_profile():
+    """Get student profile data."""
     try:
         student_id = session.get('student_id')
         if not student_id:
             return jsonify({'success': False, 'message': 'Not authenticated'})
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get student profile data
-        cursor.execute('''
-            SELECT name, class, profile_image
-            FROM Student 
-            WHERE id = ?
-        ''', (student_id,))
-        
-        student_data = cursor.fetchone()
-        conn.close()
-        
-        if not student_data:
-            return jsonify({'success': False, 'message': 'Student not found'})
-        
-        # Default kid avatar if no profile image
-        default_avatar = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiA1MmMwLTExIDktMjAgMjAtMjBzMjAgOSAyMCAyMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+"
-        
-        profile_image = student_data['profile_image'] if student_data['profile_image'] else default_avatar
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'name': student_data['name'],
-                'class': student_data['class'],
-                'profile_image': profile_image
-            }
-        })
-        
+        db = get_db()
+        try:
+            # Get student profile data
+            student = db.query(Student).filter(Student.id == student_id).first()
+            
+            if not student:
+                return jsonify({'success': False, 'message': 'Student not found'})
+            
+            # No default avatar - require user to upload one
+            
+            if not student.profile_image:
+                return jsonify({'success': False, 'message': 'No profile image found. Please upload a profile image.'})
+            
+            profile_image = student.profile_image
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': student.id,
+                    'name': student.full_name,
+                    'class': student.class_grade,
+                    'username': student.username,
+                    'profile_image': profile_image,
+                    'created_at': student.created_at.isoformat() if student.created_at else None,
+                    'updated_at': student.updated_at.isoformat() if student.updated_at else None
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Profile fetch error: {str(e)}")
+            return jsonify({'success': False, 'message': 'An error occurred while fetching profile'})
+        finally:
+            db.close()
+            
     except Exception as e:
-        logger.error(f"Profile fetch error: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred while fetching profile'})
+        logger.error(f"Profile request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Invalid request'})
 
 @app.route('/api/profile/image', methods=['POST'])
 @login_required
 def update_profile_image():
+    """Update student profile image."""
     try:
         student_id = session.get('student_id')
         if not student_id:
             return jsonify({'success': False, 'message': 'Not authenticated'})
         
         data = request.get_json()
-        profile_image = data.get('profile_image')
+        profile_image = data.get('profile_image', '')
         
         if not profile_image:
             return jsonify({'success': False, 'message': 'No image provided'})
@@ -313,24 +443,38 @@ def update_profile_image():
         if not profile_image.startswith('data:image/'):
             return jsonify({'success': False, 'message': 'Invalid image format'})
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Basic size validation (check if base64 data is reasonable size)
+        if len(profile_image) > 1000000:  # 1MB limit
+            return jsonify({'success': False, 'message': 'Image size too large'})
         
-        # Update profile image
-        cursor.execute('''
-            UPDATE Student 
-            SET profile_image = ?, updated_at = ?
-            WHERE id = ?
-        ''', (profile_image, datetime.now(), student_id))
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Profile image updated successfully'})
-        
+        db = get_db()
+        try:
+            # Get student and update profile image
+            student = db.query(Student).filter(Student.id == student_id).first()
+            
+            if not student:
+                return jsonify({'success': False, 'message': 'Student not found'})
+            
+            student.profile_image = profile_image
+            student.updated_at = datetime.now()
+            db.commit()
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Profile image updated successfully',
+                'profile_image': profile_image
+            })
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Profile image update error: {str(e)}")
+            return jsonify({'success': False, 'message': 'An error occurred while updating profile image'})
+        finally:
+            db.close()
+            
     except Exception as e:
-        logger.error(f"Profile image update error: {str(e)}")
-        return jsonify({'success': False, 'message': 'An error occurred while updating profile image'})
+        logger.error(f"Profile image update request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Invalid request data'})
 
 # Socket events
 @socketio.on('connect')
@@ -352,18 +496,24 @@ def handle_message(data):
         logger.warning("Empty message received, ignoring")
         return
     
-    # Create a background task to process the message
+    # Get user context in the request context (where session is available)
+    user_context = get_user_context()
+    if user_context is None:
+        socketio.emit('message', {'role': 'assistant', 'content': "Please log in to use the learning agent."})
+        return
+    
+    # Create a background task to process the message with context
     logger.info("Starting background task to process message")
-    socketio.start_background_task(target=run_async_message, user_input=user_input)
+    socketio.start_background_task(target=run_async_message, user_input=user_input, user_context=user_context)
 
-def run_async_message(user_input):
+def run_async_message(user_input, user_context):
     """Wrapper function to run the async process_message function in a background task."""
     logger.info("Setting up async loop for message processing")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         logger.info("Running process_message in the loop")
-        loop.run_until_complete(process_message(user_input))
+        loop.run_until_complete(process_message(user_input, user_context))
     except Exception as e:
         logger.error(f"Error in run_async_message: {str(e)}")
         socketio.emit('message', {'role': 'agent', 'content': f"An error occurred while processing your message: {str(e)}"})
@@ -371,8 +521,8 @@ def run_async_message(user_input):
         logger.info("Closing async loop")
         loop.close()
 
-async def process_message(user_input):
-    global context, agent_graph
+async def process_message(user_input, user_context):
+    global agent_graph
     
     logger.info("Processing message with LangGraph agent")
     
@@ -381,9 +531,9 @@ async def process_message(user_input):
             logger.error("Agent not initialized")
             socketio.emit('message', {'role': 'assistant', 'content': "Error: Agent not initialized. Please refresh the page."})
             return
-            
+        
         logger.info("Running LangGraph agent with the message")
-        response = await run_learning_agent_async(agent_graph, user_input, context)
+        response = await run_learning_agent_async(agent_graph, user_input, user_context)
         
         logger.info("Message processed successfully")
         
@@ -450,6 +600,10 @@ if __name__ == '__main__':
         logger.info("✓ Loaded environment variables from .env file")
     except ImportError:
         logger.warning("⚠️ python-dotenv not installed, using system env variables")
+    
+    # Initialize the database
+    init_db()
+    logger.info("✓ Database initialized")
     
     # Initialize the agent before starting the server
     initialize_agent()

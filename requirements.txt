@@ -10,3 +10,7 @@ langchain-community>=0.3.7
 langchain-litellm>=0.2.0
 litellm>=1.51.0
 typing-extensions>=4.12.2
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.10
+alembic==1.13.3
+passlib[bcrypt]==1.7.4

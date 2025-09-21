@@ -3,19 +3,31 @@ import os
 from ContextClass import LearningContext
 from AgentFactory import create_learning_agent, run_learning_agent_async
 
-# Initialize learning context
-context = LearningContext(
-    session_id="cli_session_001",
-    user_id="user_123",  # In real scenarios, fetch from auth system
-    progress={},
-    past_messages=[],
-)
+# Learning context will be created dynamically
+context = None
 
 # ---------------- Interactive Runner ----------------
+def get_cli_context():
+    """Get or create learning context for CLI usage."""
+    global context
+    
+    if context is None:
+        # For CLI usage, create a temporary context
+        # In a real implementation, you might want to authenticate users
+        context = LearningContext(
+            user_id="cli_user",
+            session_id="cli_session",
+            progress={},
+            past_messages=[],
+        )
+    
+    return context
+
 async def interactive_learning_agent():
     """Interactive REPL for LangGraph learning agent."""
     
     print("📝 Hi this is your personal Learning Agent - Type 'quit' to exit\n")
+    print("Note: CLI mode uses temporary session. Data will not be persisted.\n")
     
     # Create the LangGraph agent
     agent_graph = create_learning_agent()
@@ -28,8 +40,9 @@ async def interactive_learning_agent():
             continue
 
         try:
-            # Run the agent with user input
-            response = await run_learning_agent_async(agent_graph, user_input, context)
+            # Get context and run the agent with user input
+            cli_context = get_cli_context()
+            response = await run_learning_agent_async(agent_graph, user_input, cli_context)
             print(f"Agent: {response}\n")
             
         except Exception as e:
