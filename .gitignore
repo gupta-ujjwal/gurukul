@@ -21,7 +21,7 @@ var/
 *.egg
 
 # Virtual Environment
-venv/
+.venv/
 ENV/
 env/
 
@@ -49,8 +49,3 @@ instance/
 # Local development
 .coverage
 htmlcov/
-
-__pycache__/
-*.pyc
-*.pyo
-*.pyd

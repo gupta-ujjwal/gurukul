@@ -58,7 +58,7 @@ echo "Press Ctrl+C to stop the server"
 echo "====================================="
 
 # Run the web interface with better error handling
-python3 app.py || {
+python3 src/apis/app.py || {
     echo "❌ Error starting the server. Check the error message above."
     exit 1
 }

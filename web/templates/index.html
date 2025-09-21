@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Agent Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>Learning Hub</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- User Profile Section -->
+                <div class="section">
+                    <div class="user-profile">
+                        <div class="profile-avatar">
+                            <img id="profile-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2MzY2ZjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiA1MmMwLTExIDktMjAgMjAtMjBzMjAgOSAyMCAyMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+" alt="Profile" />
+                            <div class="profile-edit-overlay">
+                                <button class="edit-profile-btn" id="edit-profile-btn" title="Change profile picture">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="profile-info">
+                            <h4 id="user-name">Student</h4>
+                            <p id="user-class">Class 11</p>
+                        </div>
+                    </div>
+                    <input type="file" id="profile-image-input" accept="image/*" style="display: none;" />
+                </div>
+                
+                <!-- Subject Selection -->
+                <div class="section">
+                    <h3><i class="fas fa-book"></i> Subjects</h3>
+                    <div class="subject-grid">
+                        <button class="subject-btn active" data-subject="physics">
+                            <i class="fas fa-atom"></i>
+                            <span>Physics</span>
+                        </button>
+                        <button class="subject-btn disabled" data-subject="chemistry" disabled>
+                            <i class="fas fa-flask"></i>
+                            <span>Chemistry</span>
+                        </button>
+                        <button class="subject-btn disabled" data-subject="math" disabled>
+                            <i class="fas fa-calculator"></i>
+                            <span>Math</span>
+                        </button>
+                        <button class="subject-btn disabled" data-subject="biology" disabled>
+                            <i class="fas fa-dna"></i>
+                            <span>Biology</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Class Selection -->
+                <div class="section">
+                    <h3><i class="fas fa-layer-group"></i> Class</h3>
+                    <div class="class-selector">
+                        <button class="class-btn disabled" data-class="9" disabled>9</button>
+                        <button class="class-btn disabled" data-class="10" disabled>10</button>
+                        <button class="class-btn active" data-class="11">11</button>
+                        <button class="class-btn disabled" data-class="12" disabled>12</button>
+                    </div>
+                </div>
+                
+
+                <!-- Progress Section -->
+                <div class="section">
+                    <h3><i class="fas fa-chart-line"></i> Progress</h3>
+                    <div class="progress-card">
+                        <div class="progress-item">
+                            <span class="progress-label">Physics Mastery</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="mastery-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-value" id="mastery-progress-value">0%</span>
+                        </div>
+                        <div class="progress-item">
+                            <span class="progress-label">Topics Covered</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="topics-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-value" id="topics-progress-value">0/20</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="chat-header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <div class="agent-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="header-info">
+                            <h1>Learning Agent</h1>
+                            <p id="subject-info">CBSE Class 11 Physics Tutor</p>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <button class="header-btn" id="toggle-sidebar">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <button class="header-btn" id="clear-chat">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <!-- Welcome message will be added here -->
+                </div>
+                
+                <!-- Suggested Questions -->
+                <div class="suggestions" id="suggestions">
+                    <div class="suggestion-header">
+                        <i class="fas fa-magic"></i>
+                        <span>Try asking about:</span>
+                    </div>
+                    <div class="suggestion-grid">
+                        <button class="suggestion-btn" data-question="Explain Newton's laws of motion">
+                            <i class="fas fa-rocket"></i>
+                            Newton's Laws
+                        </button>
+                        <button class="suggestion-btn" data-question="What is kinetic energy?">
+                            <i class="fas fa-bolt"></i>
+                            Kinetic Energy
+                        </button>
+                        <button class="suggestion-btn" data-question="How do waves work?">
+                            <i class="fas fa-water"></i>
+                            Wave Motion
+                        </button>
+                        <button class="suggestion-btn" data-question="Explain electric current">
+                            <i class="fas fa-plug"></i>
+                            Electric Current
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="chat-input">
+                    <form id="message-form">
+                        <div class="input-container">
+                            <button type="button" class="attachment-btn" title="Upload file">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <input type="text" id="user-input" placeholder="Ask me anything about physics..." autocomplete="off">
+                            <button type="submit" class="send-btn" title="Send message">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
