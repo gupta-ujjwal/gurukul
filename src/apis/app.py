@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 sys.path.insert(0, project_root)
 
 from src.agents.ContextClass import LearningContext
-from src.agents.AgentFactory import create_learning_agent, run_learning_agent_async
+from src.agents.workflow import create_learning_agent, run_learning_agent_async
 from src.db.database import SessionLocal, engine, Base
 from src.models.models import *
 from src.utils.auth import get_password_hash, verify_password, is_password_strong
