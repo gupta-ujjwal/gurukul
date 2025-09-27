@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Agent Log Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .controls {
+            padding: 15px;
+            background: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-input {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .log-container {
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 0;
+        }
+        .message-group {
+            border: 1px solid #dee2e6;
+            margin: 10px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .message-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .message-header:hover {
+            background: #e9ecef;
+        }
+        .message-title {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .message-meta {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .expand-icon {
+            font-size: 14px;
+            color: #6c757d;
+            transition: transform 0.2s;
+        }
+        .expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+        .message-content {
+            display: none;
+            padding: 0;
+        }
+        .expanded .message-content {
+            display: block;
+        }
+        .workflow-step {
+            border-left: 3px solid #007bff;
+            margin: 5px 0;
+            padding-left: 10px;
+        }
+        .workflow-step.TUTOR_AGENT {
+            border-left-color: #28a745;
+        }
+        .workflow-step.BUDDY_AGENT {
+            border-left-color: #ffc107;
+        }
+        .workflow-step.LLM_CALL {
+            border-left-color: #17a2b8;
+        }
+        .workflow-step.WORKFLOW_START {
+            border-left-color: #6f42c1;
+        }
+        .workflow-step.WORKFLOW_END {
+            border-left-color: #dc3545;
+        }
+        .workflow-subgroup {
+            margin: 8px 0;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .subgroup-header {
+            background: #f1f3f4;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 13px;
+        }
+        .subgroup-header:hover {
+            background: #e8eaed;
+        }
+        .subgroup-title {
+            font-weight: bold;
+            color: #495057;
+        }
+        .subgroup-meta {
+            font-size: 11px;
+            color: #6c757d;
+        }
+        .subgroup-expand-icon {
+            font-size: 12px;
+            color: #6c757d;
+            transition: transform 0.2s;
+        }
+        .subgroup-expanded .subgroup-expand-icon {
+            transform: rotate(90deg);
+        }
+        .subgroup-content {
+            display: none;
+            padding: 0;
+        }
+        .subgroup-expanded .subgroup-content {
+            display: block;
+        }
+        .subgroup-content .log-entry {
+            margin-left: 10px;
+            border-left: 2px solid #dee2e6;
+            padding-left: 15px;
+        }
+        .workflow-phase {
+            font-weight: bold;
+            color: #495057;
+            text-transform: uppercase;
+            font-size: 11px;
+            margin: 10px 0 5px 0;
+            padding: 3px 8px;
+            background: #e9ecef;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .log-entry {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ecf0f1;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .log-entry:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .log-entry:hover {
+            background-color: #e3f2fd;
+        }
+        .timestamp {
+            color: #666;
+            font-weight: bold;
+        }
+        .level {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+        .level.INFO {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .level.WARN {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .level.ERROR {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .step {
+            color: #2c3e50;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .status {
+            color: #7f8c8d;
+            margin-left: 8px;
+        }
+        .user-id {
+            color: #3498db;
+            margin-left: 8px;
+        }
+        .session-id {
+            color: #9b59b6;
+            margin-left: 8px;
+        }
+        .context {
+            color: #27ae60;
+            margin-left: 8px;
+            font-size: 12px;
+        }
+        .hidden {
+            display: none;
+        }
+        .stats {
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Learning Agent Log Viewer</h1>
+        </div>
+        
+        <div class="controls">
+            <textarea id="logInput" class="filter-input" placeholder="Paste your JSON logs here (one per line)..." style="flex: 1; height: 80px; resize: vertical;"></textarea>
+            <button onclick="parseLogs()" class="filter-input" style="background: #3498db; color: white; border: none; cursor: pointer;">Parse Logs</button>
+        </div>
+        <div class="controls">
+            <input type="text" id="filterText" class="filter-input" placeholder="Filter by text..." style="flex: 1;">
+            <select id="levelFilter" class="filter-select">
+                <option value="">All Levels</option>
+                <option value="INFO">INFO</option>
+                <option value="WARN">WARN</option>
+                <option value="ERROR">ERROR</option>
+            </select>
+            <select id="stepFilter" class="filter-select">
+                <option value="">All Steps</option>
+            </select>
+            <select id="userFilter" class="filter-select">
+                <option value="">All Users</option>
+            </select>
+            <button onclick="clearFilters()" class="filter-input" style="background: #e74c3c; color: white; border: none; cursor: pointer;">Clear</button>
+        </div>
+        
+        <div class="log-container" id="logContainer">
+        </div>
+        
+        <div class="stats" id="stats">
+        </div>
+    </div>
+
+    <script>
+        let logData = [];
+
+        function populateFilters() {
+            const steps = [...new Set(logData.map(log => log.step))].sort();
+            const users = [...new Set(logData.map(log => log.user_id))].sort();
+            
+            const stepFilter = document.getElementById('stepFilter');
+            const userFilter = document.getElementById('userFilter');
+            
+            steps.forEach(step => {
+                const option = document.createElement('option');
+                option.value = step;
+                option.textContent = step;
+                stepFilter.appendChild(option);
+            });
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                userFilter.appendChild(option);
+            });
+        }
+
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+
+        function formatContext(context) {
+            if (!context) return '';
+            return JSON.stringify(context);
+        }
+
+        function groupLogsByWorkflow(logs) {
+            const groups = [];
+            let currentGroup = null;
+            
+            logs.forEach(log => {
+                if (log.step === 'WORKFLOW_START' && log.status === 'ENTER') {
+                    // Start a new message group
+                    currentGroup = {
+                        id: log.timestamp,
+                        user_id: log.user_id,
+                        session_id: log.session_id,
+                        startTime: log.timestamp,
+                        initial_agent: log.context?.initial_agent || 'unknown',
+                        message_count: log.context?.message_count || 1,
+                        logs: [log],
+                        subgroups: {
+                            workflow_start: [],
+                            agent_execution: [],
+                            llm_calls: [],
+                            tool_calls: [],
+                            agent_update: [],
+                            workflow_end: []
+                        }
+                    };
+                    groups.push(currentGroup);
+                } else if (currentGroup && log.step === 'WORKFLOW_END' && log.status === 'EXIT') {
+                    // End the current message group
+                    currentGroup.endTime = log.timestamp;
+                    currentGroup.logs.push(log);
+                    currentGroup.subgroups.workflow_end.push(log);
+                    currentGroup = null;
+                } else if (currentGroup) {
+                    // Add to current group and categorize
+                    currentGroup.logs.push(log);
+                    
+                    // Categorize logs into subgroups
+                    if (log.step === 'WORKFLOW_START') {
+                        currentGroup.subgroups.workflow_start.push(log);
+                    } else if (log.step === 'TUTOR_AGENT' || log.step === 'BUDDY_AGENT') {
+                        currentGroup.subgroups.agent_execution.push(log);
+                    } else if (log.step === 'LLM_CALL') {
+                        currentGroup.subgroups.llm_calls.push(log);
+                    } else if (log.step === 'UPDATE_AGENT') {
+                        currentGroup.subgroups.agent_update.push(log);
+                    } else if (log.step === 'GENERAL' && log.context?.message?.includes('tool calls')) {
+                        currentGroup.subgroups.tool_calls.push(log);
+                    } else {
+                        // Add to agent_execution as fallback
+                        currentGroup.subgroups.agent_execution.push(log);
+                    }
+                } else {
+                    // Orphaned log, create a single-item group
+                    const orphanGroup = {
+                        id: log.timestamp,
+                        user_id: log.user_id,
+                        session_id: log.session_id,
+                        startTime: log.timestamp,
+                        endTime: log.timestamp,
+                        initial_agent: 'unknown',
+                        message_count: 1,
+                        logs: [log],
+                        subgroups: {
+                            workflow_start: [],
+                            agent_execution: [log],
+                            llm_calls: [],
+                            tool_calls: [],
+                            agent_update: [],
+                            workflow_end: []
+                        }
+                    };
+                    groups.push(orphanGroup);
+                }
+            });
+            
+            return groups;
+        }
+
+        function renderSubgroup(subgroup, subgroupName, groupIndex, subgroupIndex) {
+            if (subgroup.length === 0) return '';
+            
+            const startTime = subgroup[0].timestamp;
+            const endTime = subgroup[subgroup.length - 1].timestamp;
+            const duration = new Date(endTime) - new Date(startTime);
+            
+            const subgroupTitles = {
+                workflow_start: 'Workflow Initialization',
+                agent_execution: 'Agent Execution',
+                llm_calls: 'LLM Calls',
+                tool_calls: 'Tool Calls',
+                agent_update: 'Agent Update',
+                workflow_end: 'Workflow Completion'
+            };
+            
+            return `
+                <div class="workflow-subgroup">
+                    <div class="subgroup-header" onclick="toggleSubgroup(${groupIndex}, ${subgroupIndex})">
+                        <div>
+                            <div class="subgroup-title">${subgroupTitles[subgroupName] || subgroupName}</div>
+                            <div class="subgroup-meta">
+                                ${subgroup.length} logs | Duration: ${duration > 0 ? (duration / 1000).toFixed(2) + 's' : 'N/A'}
+                            </div>
+                        </div>
+                        <div class="subgroup-expand-icon">▶</div>
+                    </div>
+                    <div class="subgroup-content" id="subgroup-${groupIndex}-${subgroupIndex}">
+                        ${subgroup.map(log => {
+                            const stepClass = log.step ? `workflow-step ${log.step}` : '';
+                            return `
+                                <div class="log-entry ${stepClass}">
+                                    <span class="timestamp">${formatTimestamp(log.timestamp)}</span>
+                                    <span class="level ${log.level}">${log.level}</span>
+                                    <span class="step">${log.step}</span>
+                                    <span class="status">${log.status}</span>
+                                    <span class="user-id">User: ${log.user_id}</span>
+                                    <span class="session-id">Session: ${log.session_id}</span>
+                                    ${log.context ? `<span class="context">Context: ${formatContext(log.context)}</span>` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logContainer');
+            const filterText = document.getElementById('filterText').value.toLowerCase();
+            const levelFilter = document.getElementById('levelFilter').value;
+            const stepFilter = document.getElementById('stepFilter').value;
+            const userFilter = document.getElementById('userFilter').value;
+            
+            let filteredLogs = logData.filter(log => {
+                const matchesText = !filterText || 
+                    JSON.stringify(log).toLowerCase().includes(filterText);
+                const matchesLevel = !levelFilter || log.level === levelFilter;
+                const matchesStep = !stepFilter || log.step === stepFilter;
+                const matchesUser = !userFilter || log.user_id === userFilter;
+                
+                return matchesText && matchesLevel && matchesStep && matchesUser;
+            });
+            
+            container.innerHTML = '';
+            
+            const groups = groupLogsByWorkflow(filteredLogs);
+            
+            groups.forEach((group, groupIndex) => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'message-group';
+                
+                const duration = group.endTime ? 
+                    new Date(group.endTime) - new Date(group.startTime) : 0;
+                
+                let subgroupsHtml = '';
+                const subgroupOrder = ['workflow_start', 'agent_execution', 'llm_calls', 'tool_calls', 'agent_update', 'workflow_end'];
+                
+                subgroupOrder.forEach((subgroupName, subgroupIndex) => {
+                    subgroupsHtml += renderSubgroup(group.subgroups[subgroupName], subgroupName, groupIndex, subgroupIndex);
+                });
+                
+                groupDiv.innerHTML = `
+                    <div class="message-header" onclick="toggleGroup(${groupIndex})">
+                        <div>
+                            <div class="message-title">Message #${groups.length - groupIndex} - ${group.initial_agent.toUpperCase()} Agent</div>
+                            <div class="message-meta">
+                                ${formatTimestamp(group.startTime)} | 
+                                User: ${group.user_id} | 
+                                Session: ${group.session_id} | 
+                                Duration: ${duration > 0 ? (duration / 1000).toFixed(2) + 's' : 'N/A'}
+                            </div>
+                        </div>
+                        <div class="expand-icon">▶</div>
+                    </div>
+                    <div class="message-content" id="group-${groupIndex}">
+                        ${subgroupsHtml}
+                    </div>
+                `;
+                
+                container.appendChild(groupDiv);
+            });
+            
+            updateStats(filteredLogs, groups);
+        }
+
+        function updateStats(filteredLogs, groups) {
+            const stats = document.getElementById('stats');
+            const totalLogs = logData.length;
+            const filteredCount = filteredLogs.length;
+            const levels = {};
+            const steps = {};
+            
+            filteredLogs.forEach(log => {
+                levels[log.level] = (levels[log.level] || 0) + 1;
+                steps[log.step] = (steps[log.step] || 0) + 1;
+            });
+            
+            const totalGroups = groups ? groups.length : 0;
+            const totalDuration = groups ? groups.reduce((sum, group) => {
+                if (group.endTime) {
+                    return sum + (new Date(group.endTime) - new Date(group.startTime));
+                }
+                return sum;
+            }, 0) : 0;
+            
+            stats.innerHTML = `
+                <strong>Stats:</strong> 
+                Showing ${filteredCount} of ${totalLogs} logs in ${totalGroups} message groups | 
+                Levels: ${Object.entries(levels).map(([k, v]) => `${k}: ${v}`).join(', ')} | 
+                Steps: ${Object.entries(steps).map(([k, v]) => `${k}: ${v}`).join(', ')} | 
+                Total Duration: ${totalDuration > 0 ? (totalDuration / 1000).toFixed(2) + 's' : 'N/A'}
+            `;
+        }
+
+        function parseLogs() {
+            const input = document.getElementById('logInput').value.trim();
+            if (!input) {
+                alert('Please paste your logs in the textarea above.');
+                return;
+            }
+            
+            try {
+                const lines = input.split('\n').filter(line => line.trim());
+                logData = lines.map(line => JSON.parse(line.trim()));
+                populateFilters();
+                renderLogs();
+                document.getElementById('logInput').value = '';
+            } catch (error) {
+                alert('Error parsing logs. Please ensure each line contains valid JSON.');
+                console.error('Parse error:', error);
+            }
+        }
+
+        function toggleGroup(groupIndex) {
+            const group = document.querySelector(`#group-${groupIndex}`).parentElement;
+            group.classList.toggle('expanded');
+        }
+
+        function toggleSubgroup(groupIndex, subgroupIndex) {
+            const subgroup = document.querySelector(`#subgroup-${groupIndex}-${subgroupIndex}`).parentElement;
+            subgroup.classList.toggle('subgroup-expanded');
+        }
+
+        function clearFilters() {
+            document.getElementById('filterText').value = '';
+            document.getElementById('levelFilter').value = '';
+            document.getElementById('stepFilter').value = '';
+            document.getElementById('userFilter').value = '';
+            renderLogs();
+        }
+
+        document.getElementById('filterText').addEventListener('input', renderLogs);
+        document.getElementById('levelFilter').addEventListener('change', renderLogs);
+        document.getElementById('stepFilter').addEventListener('change', renderLogs);
+        document.getElementById('userFilter').addEventListener('change', renderLogs);
+
+        populateFilters();
+        renderLogs();
+    </script>
+</body>
+</html>

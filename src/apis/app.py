@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 sys.path.insert(0, project_root)
 
 from src.agents.ContextClass import LearningContext
-from src.agents.AgentFactory import create_learning_agent, run_learning_agent_async
+from src.agents.workflow import create_learning_agent, run_learning_agent_async
 from src.db.database import SessionLocal, engine, Base
 from src.models.models import *
 from src.utils.auth import get_password_hash, verify_password, is_password_strong
@@ -92,6 +92,44 @@ def get_db():
     finally:
         db.close()
 
+def enroll_student_in_courses(student_id: int, class_grade: int):
+    """Automatically enroll a student in courses based on their class grade."""
+    db = get_db()
+    try:
+        # Find courses that match the student's class grade
+        courses = db.query(Course).filter(Course.grade == class_grade).all()
+        
+        if not courses:
+            logger.warning(f"No courses found for class grade {class_grade}")
+            return
+        
+        # Enroll the student in each matching course
+        for course in courses:
+            # Check if already enrolled
+            existing_enrollment = db.query(Enrollment).filter(
+                Enrollment.student_id == student_id,
+                Enrollment.course_id == course.id
+            ).first()
+            
+            if not existing_enrollment:
+                # Create new enrollment
+                new_enrollment = Enrollment(
+                    student_id=student_id,
+                    course_id=course.id
+                )
+                db.add(new_enrollment)
+                logger.info(f"Enrolled student {student_id} in course {course.name}")
+        
+        db.commit()
+        logger.info(f"Successfully enrolled student {student_id} in {len(courses)} courses")
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error enrolling student {student_id} in courses: {str(e)}")
+        raise
+    finally:
+        db.close()
+
 # Initialize database tables
 def init_db():
     """Initialize database tables."""
@@ -161,9 +199,17 @@ def signup():
             db.commit()
             db.refresh(new_student)
             
+            # Automatically enroll the student in courses based on their class grade
+            try:
+                enroll_student_in_courses(new_student.id, new_student.class_grade)
+                enrollment_message = ' Account created and enrolled in courses successfully.'
+            except Exception as e:
+                logger.error(f"Auto-enrollment failed for student {new_student.id}: {str(e)}")
+                enrollment_message = ' Account created successfully, but course enrollment failed. Please contact support.'
+            
             return jsonify({
                 'success': True, 
-                'message': 'Account created successfully',
+                'message': 'Account created successfully' + enrollment_message,
                 'student_id': new_student.id
             })
             

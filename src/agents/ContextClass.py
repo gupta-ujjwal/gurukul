@@ -7,6 +7,12 @@ from ..db.database import get_db
 from ..models.models import Student, Progress, Course, Section
 from sqlalchemy.orm import Session
 import logging
+from enum import Enum
+
+
+class AgentType(str, Enum):
+    TUTOR = "tutor"
+    BUDDY = "buddy"
 
 # ---------------- LangGraph State ----------------
 class LearningState(TypedDict):
@@ -23,6 +29,7 @@ class LearningContext:
     created_at: Optional[datetime] = None
     progress: Optional[Dict[str, Any]] = None
     past_messages: Optional[List[Dict[str, str]]] = None
+    current_agent: AgentType = AgentType.BUDDY
 
     def __post_init__(self):
         if self.created_at is None:
@@ -31,6 +38,9 @@ class LearningContext:
             self.progress = {}
         if self.past_messages is None:
             self.past_messages = []
+        # Default to buddy agent for new sessions
+        if not hasattr(self, 'current_agent') or self.current_agent is None:
+            self.current_agent = AgentType.BUDDY
 
     def add_message(self, role: str, content: str):
         """Add a message to the past messages."""
